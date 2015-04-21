@@ -57,11 +57,9 @@ class Post(RenderableItem):
             self.topic.on_moderation = False
 
         self.topic.update_counters()
-        self.topic.forum.update_counters()
 
         if topic_changed:
             old_post.topic.update_counters()
-            old_post.topic.forum.update_counters()
 
     def get_absolute_url(self):
         return reverse('pybb:post', kwargs={'pk': self.id})
@@ -75,7 +73,6 @@ class Post(RenderableItem):
         else:
             super(Post, self).delete(*args, **kwargs)
             self.topic.update_counters()
-            self.topic.forum.update_counters()
 
     def get_parents(self):
         """

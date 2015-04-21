@@ -16,6 +16,3 @@ class Command(BaseCommand):
             topic.update_counters()
             self.stdout.write('Successfully updated topic "%s"\n' % topic)
 
-        for forum in Forum.objects.all():
-            forum.update_counters()
-            self.stdout.write('Successfully updated forum "%s"\n' % forum)

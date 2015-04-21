@@ -27,7 +27,7 @@ class Category(models.Model):
         return self.name
 
     def forum_count(self):
-        return self.forums.all().count()
+        return self.forums.count()
 
     def get_absolute_url(self):
         return reverse('pybb:category', kwargs={'pk': self.id})

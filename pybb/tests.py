@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import time
 import datetime
 import os
+import unittest
 
 from django.contrib.auth.models import Permission
 from django.conf import settings
@@ -154,6 +155,7 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(Topic.objects.filter(name='new topic name').exists())
 
+    @unittest.skip('This test is redundant given that adding a topic is an atomic operation with adding the first post (see views.mixins.PostEditMixin.post())')
     def test_topic_read_before_post_addition(self):
         """
         Test if everything is okay when :

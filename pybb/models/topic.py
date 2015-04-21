@@ -70,22 +70,10 @@ class Topic(models.Model):
         if self.id is None:
             self.created = self.updated = tznow()
 
-        forum_changed = False
-        old_topic = None
-        if self.id is not None:
-            old_topic = Topic.objects.get(id=self.id)
-            if self.forum != old_topic.forum:
-                forum_changed = True
-
         super(Topic, self).save(*args, **kwargs)
-
-        if forum_changed:
-            old_topic.forum.update_counters()
-            self.forum.update_counters()
 
     def delete(self, using=None):
         super(Topic, self).delete(using)
-        self.forum.update_counters()
 
     def update_counters(self):
         self.post_count = self.posts.count()

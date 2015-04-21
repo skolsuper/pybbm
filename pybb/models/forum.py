@@ -20,9 +20,6 @@ class Forum(models.Model):
     position = models.IntegerField(_('Position'), blank=True, default=0)
     description = models.TextField(_('Description'), blank=True)
     moderators = models.ManyToManyField(get_user_model_path(), blank=True, null=True, verbose_name=_('Moderators'))
-    updated = models.DateTimeField(_('Updated'), blank=True, null=True)
-    post_count = models.IntegerField(_('Post count'), blank=True, default=0)
-    topic_count = models.IntegerField(_('Topic count'), blank=True, default=0)
     hidden = models.BooleanField(_('Hidden'), blank=False, null=False, default=False)
     readed_by = models.ManyToManyField(get_user_model_path(), through='ForumReadTracker', related_name='readed_forums')
     headline = models.TextField(_('Headline'), blank=True, null=True)
@@ -36,34 +33,31 @@ class Forum(models.Model):
     def __str__(self):
         return self.name
 
-    def update_counters(self):
-        self.topic_count = self.topics.count()
-        if self.topic_count:
-            posts = Post.objects.filter(topic__forum_id=self.id)
-            self.post_count = posts.count()
-            if self.post_count:
-                try:
-                    last_post = posts.order_by('-created', '-id')[0]
-                    self.updated = last_post.updated or last_post.created
-                except IndexError:
-                    pass
-        else:
-            self.post_count = 0
-        self.save()
-
     def get_absolute_url(self):
         return reverse('pybb:forum', kwargs={'pk': self.id})
 
+    @cached_property
+    def topic_count(self):
+        return self.topics.count()
+
     @property
-    def posts(self):
-        return Post.objects.filter(topic__forum=self).select_related()
+    def post_count(self):
+        return len(self.posts)
+
+    @property
+    def updated(self):
+        if self.last_post is not None:
+            return self.last_post.created
+        return None
 
     @cached_property
+    def posts(self):
+        return Post.objects.filter(topic__forum=self)
+
+    @property
     def last_post(self):
-        try:
-            return self.posts.order_by('-created', '-id')[0]
-        except IndexError:
-            return None
+        #default ordering on Post model is by 'created'
+        return self.posts.last()
 
     def get_parents(self):
         """
