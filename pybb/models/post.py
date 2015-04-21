@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
-from django.utils.timezone import now as tznow
 from django.utils.translation import ugettext_lazy as _
 
 from pybb.compat import get_user_model_path
@@ -16,7 +15,7 @@ from .renderable import RenderableItem
 class Post(RenderableItem):
     topic = models.ForeignKey('Topic', related_name='posts', verbose_name=_('Topic'))
     user = models.ForeignKey(get_user_model_path(), related_name='posts', verbose_name=_('User'))
-    created = models.DateTimeField(_('Created'), blank=True, db_index=True)
+    created = models.DateTimeField(_('Created'), blank=True, db_index=True, auto_now_add=True)
     updated = models.DateTimeField(_('Updated'), blank=True, null=True)
     user_ip = models.IPAddressField(_('User IP'), blank=True, default='0.0.0.0')
     on_moderation = models.BooleanField(_('On moderation'), default=False)
@@ -36,19 +35,12 @@ class Post(RenderableItem):
         return self.summary()
 
     def save(self, *args, **kwargs):
-        created_at = tznow()
-        if self.created is None:
-            self.created = created_at
         self.render()
 
-        new = self.pk is None
-
         topic_changed = False
-        old_post = None
-        if not new:
+        if self.pk is not None:
             old_post = Post.objects.get(pk=self.pk)
-            if old_post.topic != self.topic:
-                topic_changed = True
+            topic_changed = old_post.topic != self.topic
 
         super(Post, self).save(*args, **kwargs)
 

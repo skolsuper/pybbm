@@ -42,7 +42,7 @@ class Forum(models.Model):
 
     @property
     def post_count(self):
-        return len(self.posts)
+        return self.posts.count()
 
     @property
     def updated(self):

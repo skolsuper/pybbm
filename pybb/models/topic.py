@@ -51,17 +51,11 @@ class Topic(models.Model):
 
     @cached_property
     def head(self):
-        try:
-            return self.posts.all().order_by('created', 'id')[0]
-        except IndexError:
-            return None
+        return self.posts.first()
 
     @cached_property
     def last_post(self):
-        try:
-            return self.posts.order_by('-created', '-id').select_related('user')[0]
-        except IndexError:
-            return None
+        return self.posts.last()
 
     def get_absolute_url(self):
         return reverse('pybb:topic', kwargs={'pk': self.id})
