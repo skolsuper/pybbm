@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from django import VERSION as DJANGO_VERSION
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
@@ -49,13 +50,25 @@ class Topic(models.Model):
     def __str__(self):
         return self.name
 
-    @cached_property
-    def head(self):
-        return self.posts.first()
+    if DJANGO_VERSION >= (1,7):
 
-    @cached_property
-    def last_post(self):
-        return self.posts.last()
+        @cached_property
+        def head(self):
+            return self.posts.first()
+
+        @cached_property
+        def last_post(self):
+            return self.posts.last()
+
+    else:
+        @cached_property
+        def head(self):
+            return self.posts.all()[0]
+
+        @cached_property
+        def last_post(self):
+            count = self.posts.count()
+            return self.posts.all()[count - 1]
 
     def get_absolute_url(self):
         return reverse('pybb:topic', kwargs={'pk': self.id})
