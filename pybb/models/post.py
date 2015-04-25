@@ -57,14 +57,13 @@ class Post(RenderableItem):
         return reverse('pybb:post', kwargs={'pk': self.id})
 
     def delete(self, *args, **kwargs):
-        self_id = self.id
-        head_post_id = self.topic.posts.order_by('created', 'id')[0].id
-
-        if self_id == head_post_id:
-            self.topic.delete()
+        topic = self.topic
+        topic_head = self == topic.head
+        super(Post, self).delete(*args, **kwargs)
+        if topic_head:
+            topic.delete()
         else:
-            super(Post, self).delete(*args, **kwargs)
-            self.topic.update_counters()
+            topic.update_counters()
 
     def get_parents(self):
         """
