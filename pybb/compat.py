@@ -88,3 +88,19 @@ def get_paginator_class():
         pure_pagination = False
 
     return Paginator, pure_pagination
+
+def first(qs):
+    if django.VERSION >= (1, 6):
+        return qs.first()
+    try:
+        return qs.all()[0]
+    except IndexError:
+        return None
+
+def last(qs):
+    if django.VERSION >= (1, 6):
+        return qs.last()
+    try:
+        return qs.reverse()[0]
+    except IndexError:
+        return None

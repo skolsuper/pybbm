@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from django import VERSION as DJANGO_VERSION
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
-from pybb.compat import get_user_model_path
+from pybb.compat import get_user_model_path, last
 
 from .post import Post
+
 
 @python_2_unicode_compatible
 class Forum(models.Model):
@@ -48,23 +48,18 @@ class Forum(models.Model):
     @property
     def updated(self):
         if self.last_post is not None:
-            return self.last_post.created
+            return self.last_post.updated or self.last_post.created
         return None
 
-    @cached_property
+    @property
     def posts(self):
         return Post.objects.filter(topic__forum=self)
 
-    if DJANGO_VERSION >= (1,7):
-        @cached_property
-        def last_post(self):
-            #default ordering on Post model is by 'created'
-            return self.posts.last()
+    @property
+    def last_post(self):
+        #default ordering on Post model is by 'created'
+        return last(self.posts)
 
-    else:
-        @cached_property
-        def last_post(self):
-            return self.posts.all()[self.post_count - 1]
 
     def get_parents(self):
         """

@@ -81,6 +81,7 @@ class PostForm(forms.ModelForm):
     def save(self, commit=True):
         if self.instance.pk:
             post = super(PostForm, self).save(commit=False)
+            post.updated = tznow()
             if self.user:
                 post.user = self.user
             if post.topic.head == post:
@@ -88,10 +89,9 @@ class PostForm(forms.ModelForm):
                 if self.may_create_poll:
                     post.topic.poll_type = self.cleaned_data['poll_type']
                     post.topic.poll_question = self.cleaned_data['poll_question']
-                post.topic.updated = tznow()
+                post.topic.updated = post.updated
                 if commit:
                     post.topic.save()
-            post.updated = tznow()
             if commit:
                 post.save()
             return post
