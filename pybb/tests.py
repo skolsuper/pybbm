@@ -6,6 +6,8 @@ import datetime
 import os
 import unittest
 
+from importlib import import_module
+
 from django.contrib.auth.models import Permission
 from django.conf import settings
 from django.core import mail
@@ -1597,6 +1599,15 @@ class CustomPermissionHandler(permissions.DefaultPermissionHandler):
         return False
 
 
+def can_import_test_project():
+    try:
+        import_module('test.test_project.markup_parsers')
+    except ImportError:
+        return False
+    return True
+
+
+@unittest.skipUnless(can_import_test_project(), 'Can\'t import test_project module')
 class MarkupParserTest(TestCase, SharedTestModule):
 
     def setUp(self):
