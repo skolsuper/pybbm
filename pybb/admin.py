@@ -13,7 +13,7 @@ username_field = compat.get_username_field()
 class ForumInlineAdmin(admin.TabularInline):
     model = Forum
     fields = ['name', 'hidden', 'position']
-    extra = 0
+    extra = 1
 
 
 class CategoryAdmin(admin.ModelAdmin):
@@ -49,7 +49,7 @@ class ForumAdmin(admin.ModelAdmin):
 class PollAnswerAdmin(admin.TabularInline):
     model = PollAnswer
     fields = ['text', ]
-    extra = 0
+    extra = 1
 
 
 class TopicAdmin(admin.ModelAdmin):
@@ -71,6 +71,9 @@ class TopicAdmin(admin.ModelAdmin):
          ),
         )
     inlines = [PollAnswerAdmin, ]
+
+    def head(self, topic):
+        return topic.head
 
 class TopicReadTrackerAdmin(admin.ModelAdmin):
     list_display = ['topic', 'user', 'time_stamp']
@@ -98,7 +101,7 @@ class PostAdmin(admin.ModelAdmin):
                 }
          ),
         (_('Message'), {
-                'fields': ('body', 'body_html', 'body_text')
+                'fields': ('body',)
                 }
          ),
         )
