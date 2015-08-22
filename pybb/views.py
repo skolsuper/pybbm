@@ -21,7 +21,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.views import generic
 from pybb import compat, defaults, util
 from pybb.compat import get_atomic_func
-from pybb.forms import PostForm, AdminPostForm, AttachmentFormSet, PollAnswerFormSet, PollForm
+from pybb.forms import PostForm, AttachmentFormSet, PollAnswerFormSet, PollForm
 from pybb.models import Category, Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser
 from pybb.permissions import perms
 from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
@@ -165,16 +165,12 @@ class LatestTopicsView(PaginatorMixin, generic.ListView):
 class PybbFormsMixin(object):
 
     post_form_class = PostForm
-    admin_post_form_class = AdminPostForm
     attachment_formset_class = AttachmentFormSet
     poll_form_class = PollForm
     poll_answer_formset_class = PollAnswerFormSet
 
     def get_post_form_class(self):
         return self.post_form_class
-
-    def get_admin_post_form_class(self):
-        return self.admin_post_form_class
 
     def get_attachment_formset_class(self):
         return self.attachment_formset_class
@@ -247,12 +243,7 @@ class TopicView(RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.Li
         if self.request.user.is_authenticated():
             self.request.user.is_moderator = perms.may_moderate_topic(self.request.user, self.topic)
             self.request.user.is_subscribed = self.request.user in self.topic.subscribers.all()
-            if perms.may_post_as_admin(self.request.user):
-                ctx['form'] = self.get_admin_post_form_class()(
-                    initial={'login': getattr(self.request.user, username_field)},
-                    topic=self.topic)
-            else:
-                ctx['form'] = self.get_post_form_class()(topic=self.topic)
+            ctx['form'] = self.get_post_form_class()(topic=self.topic)
             self.mark_read(self.request.user, self.topic)
         elif defaults.PYBB_ENABLE_ANONYMOUS_POST:
             ctx['form'] = self.get_post_form_class()(topic=self.topic)
@@ -327,10 +318,7 @@ class PostEditMixin(PybbFormsMixin):
         return super(PostEditMixin, self).post(request, *args, **kwargs)
 
     def get_form_class(self):
-        if perms.may_post_as_admin(self.request.user):
-            return self.get_admin_post_form_class()
-        else:
-            return self.get_post_form_class()
+        return self.get_post_form_class()
 
     def get_context_data(self, **kwargs):
 
@@ -450,8 +438,6 @@ class AddPostView(PostEditMixin, generic.CreateView):
                            ip=ip, initial={}))
         if getattr(self, 'quote', None):
             form_kwargs['initial']['body'] = self.quote
-        if perms.may_post_as_admin(self.user):
-            form_kwargs['initial']['login'] = getattr(self.user, username_field)
         form_kwargs['may_create_poll'] = perms.may_create_poll(self.user)
         form_kwargs['may_edit_topic_slug'] = perms.may_edit_topic_slug(self.user)
         return form_kwargs
@@ -800,7 +786,6 @@ def block_user(request, username):
                 Forum.objects.get(id=f['topic__forum_id']).update_counters()
             except Forum.DoesNotExist:
                 pass
-
 
     msg = _('User successfuly blocked')
     messages.success(request, msg, fail_silently=True)
