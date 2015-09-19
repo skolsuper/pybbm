@@ -19,11 +19,13 @@ from django.views.decorators.http import require_POST
 from django.views.generic.edit import ModelFormMixin
 from django.views.decorators.csrf import csrf_protect
 from django.views import generic
+
 from pybb import compat, defaults, util
 from pybb.compat import get_atomic_func
 from pybb.forms import PostForm, AttachmentFormSet, PollAnswerFormSet, PollForm
 from pybb.models import Category, Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser
 from pybb.permissions import perms
+from pybb.signals import topic_updated
 from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
 
 
@@ -431,6 +433,16 @@ class AddPostView(PostEditMixin, generic.CreateView):
                     return HttpResponse(self.quote)
         return super(AddPostView, self).dispatch(request, *args, **kwargs)
 
+    def post(self, request, *args, **kwargs):
+        response = super(AddPostView, self).post(request, *args, **kwargs)
+
+        if self.object and self.topic:
+            topic_updated.send(Post, post=self.object, request=self.request)
+            if not defaults.PYBB_DISABLE_SUBSCRIPTIONS and util.get_pybb_profile(self.object.user).autosubscribe and \
+                    perms.may_subscribe_topic(self.object.user, self.object.topic):
+                self.object.topic.subscribers.add(self.object.user)
+        return response
+
     def get_form_kwargs(self):
         ip = self.request.META.get('REMOTE_ADDR', '')
         form_kwargs = super(AddPostView, self).get_form_kwargs()
@@ -465,6 +477,12 @@ class EditPostView(PostEditMixin, generic.UpdateView):
     @method_decorator(csrf_protect)
     def dispatch(self, request, *args, **kwargs):
         return super(EditPostView, self).dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        response = super(EditPostView, self).post(request, *args, **kwargs)
+        if defaults.PYBB_NOTIFY_ON_EDIT:
+            topic_updated.send(Post, post=self.object, request=self.request)
+        return response
 
     def get_form_kwargs(self):
         form_kwargs = super(EditPostView, self).get_form_kwargs()

@@ -1,22 +1,19 @@
 # coding=utf-8
 from __future__ import unicode_literals
+
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.dispatch import Signal
 from django.db.models.signals import post_save, post_delete, pre_save
+
+from pybb import util, defaults, compat
 from pybb.models import Post, Category, Topic, Forum, create_or_check_slug
 from pybb.subscription import notify_topic_subscribers
-from pybb import util, defaults, compat
-from pybb.permissions import perms
+
+topic_updated = Signal(providing_args=['post', 'request'])
 
 
 def post_saved(instance, **kwargs):
-    if not defaults.PYBB_DISABLE_NOTIFICATIONS:
-        notify_topic_subscribers(instance)
-
-        if util.get_pybb_profile(instance.user).autosubscribe and \
-            perms.may_subscribe_topic(instance.user, instance.topic):
-            instance.topic.subscribers.add(instance.user)
-
     if kwargs['created']:
         profile = util.get_pybb_profile(instance.user)
         profile.post_count = instance.user.posts.count()
@@ -82,5 +79,7 @@ def setup():
     pre_save.connect(pre_save_topic_slug, sender=Topic)
     post_save.connect(post_saved, sender=Post)
     post_delete.connect(post_deleted, sender=Post)
+    if not defaults.PYBB_DISABLE_NOTIFICATIONS:
+        topic_updated.connect(notify_topic_subscribers, sender=Post)
     if defaults.PYBB_AUTO_USER_PERMISSIONS:
         post_save.connect(user_saved, sender=compat.get_user_model())
