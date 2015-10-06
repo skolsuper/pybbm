@@ -15,8 +15,8 @@ from django.views.decorators.csrf import csrf_protect
 
 from pybb import compat, defaults, util
 from pybb.models import Forum, Topic, Post
-from pybb.permissions import perms
 from pybb.views.mixins import PostEditMixin, RedirectToLoginMixin
+from pybb.permissions import PermissionsMixin
 
 User = compat.get_user_model()
 username_field = compat.get_username_field()
@@ -40,12 +40,12 @@ class AddPostView(PostEditMixin, generic.CreateView):
         self.forum = None
         self.topic = None
         if 'forum_id' in kwargs:
-            self.forum = get_object_or_404(perms.filter_forums(request.user, Forum.objects.all()), pk=kwargs['forum_id'])
-            if not perms.may_create_topic(self.user, self.forum):
+            self.forum = get_object_or_404(self.perms.filter_forums(request.user, Forum.objects.all()), pk=kwargs['forum_id'])
+            if not self.perms.may_create_topic(self.user, self.forum):
                 raise PermissionDenied
         elif 'topic_id' in kwargs:
-            self.topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=kwargs['topic_id'])
-            if not perms.may_create_post(self.user, self.topic):
+            self.topic = get_object_or_404(self.perms.filter_topics(request.user, Topic.objects.all()), pk=kwargs['topic_id'])
+            if not self.perms.may_create_post(self.user, self.topic):
                 raise PermissionDenied
 
             self.quote = ''
@@ -70,8 +70,8 @@ class AddPostView(PostEditMixin, generic.CreateView):
                            ip=ip, initial={}))
         if getattr(self, 'quote', None):
             form_kwargs['initial']['body'] = self.quote
-        form_kwargs['may_create_poll'] = perms.may_create_poll(self.user)
-        form_kwargs['may_edit_topic_slug'] = perms.may_edit_topic_slug(self.user)
+        form_kwargs['may_create_poll'] = self.perms.may_create_poll(self.user)
+        form_kwargs['may_edit_topic_slug'] = self.perms.may_edit_topic_slug(self.user)
         return form_kwargs
 
     def get_context_data(self, **kwargs):
@@ -100,17 +100,17 @@ class EditPostView(PostEditMixin, generic.UpdateView):
 
     def get_form_kwargs(self):
         form_kwargs = super(EditPostView, self).get_form_kwargs()
-        form_kwargs['may_create_poll'] = perms.may_create_poll(self.request.user)
+        form_kwargs['may_create_poll'] = self.perms.may_create_poll(self.request.user)
         return form_kwargs
 
     def get_object(self, queryset=None):
         post = super(EditPostView, self).get_object(queryset)
-        if not perms.may_edit_post(self.request.user, post):
+        if not self.perms.may_edit_post(self.request.user, post):
             raise PermissionDenied
         return post
 
 
-class PostView(RedirectToLoginMixin, generic.RedirectView):
+class PostView(PermissionsMixin, RedirectToLoginMixin, generic.RedirectView):
 
     permanent = False
 
@@ -122,7 +122,7 @@ class PostView(RedirectToLoginMixin, generic.RedirectView):
         return self.post.get_absolute_url()
 
     def get_redirect_url(self, **kwargs):
-        if not perms.may_view_post(self.request.user, self.post):
+        if not self.perms.may_view_post(self.request.user, self.post):
             raise PermissionDenied
         count = self.post.topic.posts.filter(created__lt=self.post.created).count() + 1
         page = math.ceil(count / float(defaults.PYBB_TOPIC_PAGE_SIZE))
@@ -132,31 +132,31 @@ class PostView(RedirectToLoginMixin, generic.RedirectView):
         return get_object_or_404(Post, pk=kwargs['pk'])
 
 
-class ModeratePost(generic.RedirectView):
+class ModeratePost(PermissionsMixin, generic.RedirectView):
 
     permanent = False
 
     def get_redirect_url(self, **kwargs):
         post = get_object_or_404(Post, pk=self.kwargs['pk'])
-        if not perms.may_moderate_topic(self.request.user, post.topic):
+        if not self.perms.may_moderate_topic(self.request.user, post.topic):
             raise PermissionDenied
         post.on_moderation = False
         post.save()
         return post.get_absolute_url()
 
 
-class DeletePostView(generic.DeleteView):
+class DeletePostView(PermissionsMixin, generic.DeleteView):
 
     template_name = 'pybb/delete_post.html'
     context_object_name = 'post'
 
     def get_object(self, queryset=None):
         post = get_object_or_404(Post.objects.select_related('topic', 'topic__forum'), pk=self.kwargs['pk'])
-        if not perms.may_delete_post(self.request.user, post):
+        if not self.perms.may_delete_post(self.request.user, post):
             raise PermissionDenied
         self.topic = post.topic
         self.forum = post.topic.forum
-        if not perms.may_moderate_topic(self.request.user, self.topic):
+        if not self.perms.may_moderate_topic(self.request.user, self.topic):
             raise PermissionDenied
         return post
 

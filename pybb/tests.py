@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 import datetime
 import os
+
 from django.contrib.auth.models import Permission
 from django.conf import settings
 from django.core import mail
@@ -14,10 +15,10 @@ from django.test import TestCase, skipUnlessDBFeature
 from django.test.client import Client
 from django.test.utils import override_settings
 from django.utils import timezone
-from pybb import permissions, views as pybb_views
+
+from pybb import permissions
 from pybb.templatetags.pybb_tags import pybb_is_topic_unread, pybb_topic_unread, pybb_forum_unread, \
     pybb_get_latest_topics, pybb_get_latest_posts
-
 from pybb import compat, util
 
 User = compat.get_user_model()
@@ -1716,22 +1717,7 @@ class MarkupParserTest(TestCase, SharedTestModule):
             self.assertEqual(util.get_body_cleaner(cleaner)(staff, source), source)
 
 
-def _attach_perms_class(class_name):
-    """
-    override the permission handler. this cannot be done with @override_settings as
-    permissions.perms is already imported at import point, instead we got to monkeypatch
-    the modules (not really nice, but only an issue in tests)
-    """
-    pybb_views.perms = permissions.perms = util.resolve_class(class_name)
-
-
-def _detach_perms_class():
-    """
-    reset permission handler (otherwise other tests may fail)
-    """
-    pybb_views.perms = permissions.perms = util.resolve_class('pybb.permissions.DefaultPermissionHandler')
-
-
+@override_settings(PYBB_PERMISSION_HANDLER='pybb.tests.CustomPermissionHandler')
 class CustomPermissionHandlerTest(TestCase, SharedTestModule):
     """ test custom permission handler """
 
@@ -1752,11 +1738,6 @@ class CustomPermissionHandlerTest(TestCase, SharedTestModule):
         for t in Topic.objects.all()[0:2]:
             t.closed = True
             t.save()
-
-        _attach_perms_class('pybb.tests.CustomPermissionHandler')
-
-    def tearDown(self):
-        _detach_perms_class()
 
     def test_category_permission(self):
         for c in Category.objects.all():
@@ -1890,36 +1871,30 @@ class LogonRedirectTest(TestCase, SharedTestModule):
 
     @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False)
     def test_redirect_topic_add(self):
-        _attach_perms_class('pybb.tests.RestrictEditingHandler')
+        with self.settings(PYBB_PERMISSION_HANDLER='pybb.tests.RestrictEditingHandler'):
+            # access without user should be redirected
+            add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
+            r = self.get_with_user(add_topic_url)
+            self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % add_topic_url)
 
-        # access without user should be redirected
-        add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
-        r = self.get_with_user(add_topic_url)
-        self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % add_topic_url)
-
-        # access with (unauthorized) user should get 403 (forbidden)
-        r = self.get_with_user(add_topic_url, 'staff', 'staff')
-        self.assertEquals(r.status_code, 403)
-
-        _detach_perms_class()
+            # access with (unauthorized) user should get 403 (forbidden)
+            r = self.get_with_user(add_topic_url, 'staff', 'staff')
+            self.assertEquals(r.status_code, 403)
 
         # allowed user is allowed
         r = self.get_with_user(add_topic_url, 'staff', 'staff')
         self.assertEquals(r.status_code, 200)
 
     def test_redirect_post_edit(self):
-        _attach_perms_class('pybb.tests.RestrictEditingHandler')
+        with self.settings(PYBB_PERMISSION_HANDLER='pybb.tests.RestrictEditingHandler'):
+            # access without user should be redirected
+            edit_post_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})
+            r = self.get_with_user(edit_post_url)
+            self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % edit_post_url)
 
-        # access without user should be redirected
-        edit_post_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})
-        r = self.get_with_user(edit_post_url)
-        self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % edit_post_url)
-
-        # access with (unauthorized) user should get 403 (forbidden)
-        r = self.get_with_user(edit_post_url, 'staff', 'staff')
-        self.assertEquals(r.status_code, 403)
-
-        _detach_perms_class()
+            # access with (unauthorized) user should get 403 (forbidden)
+            r = self.get_with_user(edit_post_url, 'staff', 'staff')
+            self.assertEquals(r.status_code, 403)
 
         # allowed user is allowed
         r = self.get_with_user(edit_post_url, 'staff', 'staff')
@@ -2068,16 +2043,15 @@ class NiceUrlsTest(TestCase, SharedTestModule):
         slug_nb = len(Topic.objects.filter(slug__startswith=compat.slugify(self.topic.name))) - 1
         self.assertIsNotNone = Topic.objects.get(slug='%s-%d' % (self.topic.name, slug_nb))
 
-        _attach_perms_class('pybb.tests.CustomPermissionHandler')
-        response = self.client.get(add_topic_url)
-        inputs = dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % "post-form")[0].inputs)
-        self.assertIn('slug', inputs)
-        values = self.get_form_values(response)
-        values.update({'name': self.topic.name, 'body': '[b]Test slug body[/b]',
-                       'poll_type': 0, 'slug': 'test_slug'})
-        response = self.client.post(add_topic_url, data=values, follow=True)
-        self.assertIsNotNone = Topic.objects.get(slug='test_slug')
-        _detach_perms_class()
+        with self.settings(PYBB_PERMISSION_HANDLER='pybb.tests.CustomPermissionHandler'):
+            response = self.client.get(add_topic_url)
+            inputs = dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % "post-form")[0].inputs)
+            self.assertIn('slug', inputs)
+            values = self.get_form_values(response)
+            values.update({'name': self.topic.name, 'body': '[b]Test slug body[/b]',
+                           'poll_type': 0, 'slug': 'test_slug'})
+            response = self.client.post(add_topic_url, data=values, follow=True)
+            self.assertIsNotNone = Topic.objects.get(slug='test_slug')
 
     def test_old_url_redirection(self):
 

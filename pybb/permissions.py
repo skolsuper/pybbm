@@ -184,4 +184,16 @@ class DefaultPermissionHandler(object):
         return False
 
 
-perms = util.resolve_class(defaults.PYBB_PERMISSION_HANDLER)
+def get_perms():
+    return util.resolve_class(defaults.PYBB_PERMISSION_HANDLER)
+
+
+class PermissionsMixin(object):
+    perms_class = defaults.PYBB_PERMISSION_HANDLER
+
+    def __init__(self, *args, **kwargs):
+        try:
+            self.perms = self.perms_class()
+        except TypeError:
+            self.perms = util.resolve_class(self.perms_class)
+        super(PermissionsMixin, self).__init__(*args, **kwargs)

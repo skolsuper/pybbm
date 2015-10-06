@@ -11,8 +11,8 @@ from django.views.decorators.csrf import csrf_protect
 
 from pybb import compat, defaults, util
 from pybb.models import Topic, Post
-from pybb.permissions import perms
 from pybb.views.mixins import PaginatorMixin
+from pybb.permissions import PermissionsMixin
 
 User = compat.get_user_model()
 username_field = compat.get_username_field()
@@ -34,7 +34,7 @@ class UserView(generic.DetailView):
         return ctx
 
 
-class UserPosts(PaginatorMixin, generic.ListView):
+class UserPosts(PermissionsMixin, PaginatorMixin, generic.ListView):
     model = Post
     paginate_by = defaults.PYBB_TOPIC_PAGE_SIZE
     template_name = 'pybb/user_posts.html'
@@ -47,7 +47,7 @@ class UserPosts(PaginatorMixin, generic.ListView):
     def get_queryset(self):
         qs = super(UserPosts, self).get_queryset()
         qs = qs.filter(user=self.user)
-        qs = perms.filter_posts(self.request.user, qs).select_related('topic')
+        qs = self.perms.filter_posts(self.request.user, qs).select_related('topic')
         qs = qs.order_by('-created', '-updated', '-id')
         return qs
 
@@ -57,7 +57,7 @@ class UserPosts(PaginatorMixin, generic.ListView):
         return context
 
 
-class UserTopics(PaginatorMixin, generic.ListView):
+class UserTopics(PermissionsMixin, PaginatorMixin, generic.ListView):
     model = Topic
     paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
     template_name = 'pybb/user_topics.html'
@@ -70,7 +70,7 @@ class UserTopics(PaginatorMixin, generic.ListView):
     def get_queryset(self):
         qs = super(UserTopics, self).get_queryset()
         qs = qs.filter(user=self.user)
-        qs = perms.filter_topics(self.user, qs)
+        qs = self.perms.filter_topics(self.user, qs)
         qs = qs.order_by('-updated', '-created', '-id')
         return qs
 

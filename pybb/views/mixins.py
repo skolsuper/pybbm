@@ -11,7 +11,7 @@ from pybb import defaults, compat
 from pybb.compat import get_atomic_func
 from pybb.forms import PostForm, AttachmentFormSet, PollForm, PollAnswerFormSet
 from pybb.models import Topic, Post
-from pybb.permissions import perms
+from pybb.permissions import PermissionsMixin
 from pybb.signals import topic_updated
 
 Paginator, pure_pagination = compat.get_paginator_class()
@@ -65,7 +65,7 @@ class PybbFormsMixin(object):
         return self.poll_answer_formset_class
 
 
-class PostEditMixin(PybbFormsMixin):
+class PostEditMixin(PermissionsMixin, PybbFormsMixin):
 
     @method_decorator(get_atomic_func())
     def post(self, request, *args, **kwargs):
@@ -78,12 +78,12 @@ class PostEditMixin(PybbFormsMixin):
 
         ctx = super(PostEditMixin, self).get_context_data(**kwargs)
 
-        if perms.may_attach_files(self.request.user) and 'aformset' not in kwargs:
+        if self.perms.may_attach_files(self.request.user) and 'aformset' not in kwargs:
             ctx['aformset'] = self.get_attachment_formset_class()(
                 instance=getattr(self, 'object', None)
             )
 
-        if perms.may_create_poll(self.request.user) and 'pollformset' not in kwargs:
+        if self.perms.may_create_poll(self.request.user) and 'pollformset' not in kwargs:
             ctx['pollformset'] = self.get_poll_answer_formset_class()(
                 instance=self.object.topic if getattr(self, 'object', None) else None
             )
@@ -96,7 +96,7 @@ class PostEditMixin(PybbFormsMixin):
         save_poll_answers = False
         self.object, topic = form.save(commit=False)
 
-        if perms.may_attach_files(self.request.user):
+        if self.perms.may_attach_files(self.request.user):
             aformset = self.get_attachment_formset_class()(
                 self.request.POST, self.request.FILES, instance=self.object
             )
@@ -107,7 +107,7 @@ class PostEditMixin(PybbFormsMixin):
         else:
             aformset = None
 
-        if perms.may_create_poll(self.request.user):
+        if self.perms.may_create_poll(self.request.user):
             pollformset = self.get_poll_answer_formset_class()()
             if getattr(self, 'forum', None) or topic.head == self.object:
                 if topic.poll_type != Topic.POLL_TYPE_NONE:

@@ -15,12 +15,12 @@ from django.views.decorators.csrf import csrf_protect
 
 from pybb import defaults, util
 from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTracker
-from pybb.permissions import perms
 from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
 from pybb.views.mixins import RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin
+from pybb.permissions import PermissionsMixin
 
 
-class IndexView(generic.ListView):
+class IndexView(PermissionsMixin, generic.ListView):
 
     template_name = 'pybb/index.html'
     context_object_name = 'categories'
@@ -29,21 +29,21 @@ class IndexView(generic.ListView):
         ctx = super(IndexView, self).get_context_data(**kwargs)
         categories = ctx['categories']
         for category in categories:
-            category.forums_accessed = perms.filter_forums(self.request.user, category.forums.filter(parent=None))
+            category.forums_accessed = self.perms.filter_forums(self.request.user, category.forums.filter(parent=None))
         ctx['categories'] = categories
         return ctx
 
     def get_queryset(self):
-        return perms.filter_categories(self.request.user, Category.objects.all())
+        return self.perms.filter_categories(self.request.user, Category.objects.all())
 
 
-class CategoryView(RedirectToLoginMixin, generic.DetailView):
+class CategoryView(PermissionsMixin, RedirectToLoginMixin, generic.DetailView):
 
     template_name = 'pybb/index.html'
     context_object_name = 'category'
 
     def get_login_redirect_url(self):
-        # returns super.get_object as there is a conflict with the perms in CategoryView.get_object
+        # returns super.get_object as there is a conflict with the self.perms.in CategoryView.get_object
         # Would raise a PermissionDenied and never redirect
         return super(CategoryView, self).get_object().get_absolute_url()
 
@@ -52,13 +52,13 @@ class CategoryView(RedirectToLoginMixin, generic.DetailView):
 
     def get_object(self, queryset=None):
         obj = super(CategoryView, self).get_object(queryset)
-        if not perms.may_view_category(self.request.user, obj):
+        if not self.perms.may_view_category(self.request.user, obj):
             raise PermissionDenied
         return obj
 
     def get_context_data(self, **kwargs):
         ctx = super(CategoryView, self).get_context_data(**kwargs)
-        ctx['category'].forums_accessed = perms.filter_forums(self.request.user, ctx['category'].forums.filter(parent=None))
+        ctx['category'].forums_accessed = self.perms.filter_forums(self.request.user, ctx['category'].forums.filter(parent=None))
         ctx['categories'] = [ctx['category']]
         return ctx
 
@@ -68,7 +68,7 @@ class CategoryView(RedirectToLoginMixin, generic.DetailView):
         return super(CategoryView, self).get(*args, **kwargs)
 
 
-class ForumView(RedirectToLoginMixin, PaginatorMixin, generic.ListView):
+class ForumView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, generic.ListView):
 
     paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
     context_object_name = 'topic_list'
@@ -84,15 +84,15 @@ class ForumView(RedirectToLoginMixin, PaginatorMixin, generic.ListView):
     def get_context_data(self, **kwargs):
         ctx = super(ForumView, self).get_context_data(**kwargs)
         ctx['forum'] = self.forum
-        ctx['forum'].forums_accessed = perms.filter_forums(self.request.user, self.forum.child_forums.all())
+        ctx['forum'].forums_accessed = self.perms.filter_forums(self.request.user, self.forum.child_forums.all())
         return ctx
 
     def get_queryset(self):
-        if not perms.may_view_forum(self.request.user, self.forum):
+        if not self.perms.may_view_forum(self.request.user, self.forum):
             raise PermissionDenied
 
         qs = self.forum.topics.order_by('-sticky', '-updated', '-id').select_related()
-        qs = perms.filter_topics(self.request.user, qs)
+        qs = self.perms.filter_topics(self.request.user, qs)
         return qs
 
     def get_forum(self, **kwargs):
@@ -110,7 +110,7 @@ class ForumView(RedirectToLoginMixin, PaginatorMixin, generic.ListView):
         return super(ForumView, self).get(*args, **kwargs)
 
 
-class LatestTopicsView(PaginatorMixin, generic.ListView):
+class LatestTopicsView(PermissionsMixin, PaginatorMixin, generic.ListView):
 
     paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
     context_object_name = 'topic_list'
@@ -118,11 +118,11 @@ class LatestTopicsView(PaginatorMixin, generic.ListView):
 
     def get_queryset(self):
         qs = Topic.objects.all().select_related()
-        qs = perms.filter_topics(self.request.user, qs)
+        qs = self.perms.filter_topics(self.request.user, qs)
         return qs.order_by('-updated', '-id')
 
 
-class TopicView(RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.ListView):
+class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.ListView):
     paginate_by = defaults.PYBB_TOPIC_PAGE_SIZE
     template_object_name = 'post_list'
     template_name = 'pybb/topic.html'
@@ -167,7 +167,7 @@ class TopicView(RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.Li
         return super(TopicView, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        if not perms.may_view_topic(self.request.user, self.topic):
+        if not self.perms.may_view_topic(self.request.user, self.topic):
             raise PermissionDenied
         if self.request.user.is_authenticated() or not defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER:
             Topic.objects.filter(id=self.topic.id).update(views=F('views') + 1)
@@ -181,15 +181,15 @@ class TopicView(RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.Li
         qs = self.topic.posts.all().select_related('user')
         if defaults.PYBB_PROFILE_RELATED_NAME:
             qs = qs.select_related('user__%s' % defaults.PYBB_PROFILE_RELATED_NAME)
-        if not perms.may_moderate_topic(self.request.user, self.topic):
-            qs = perms.filter_posts(self.request.user, qs)
+        if not self.perms.may_moderate_topic(self.request.user, self.topic):
+            qs = self.perms.filter_posts(self.request.user, qs)
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super(TopicView, self).get_context_data(**kwargs)
 
         if self.request.user.is_authenticated():
-            self.request.user.is_moderator = perms.may_moderate_topic(self.request.user, self.topic)
+            self.request.user.is_moderator = self.perms.may_moderate_topic(self.request.user, self.topic)
             self.request.user.is_subscribed = self.request.user in self.topic.subscribers.all()
             ctx['form'] = self.get_post_form_class()(topic=self.topic)
         elif defaults.PYBB_ENABLE_ANONYMOUS_POST:
@@ -197,7 +197,7 @@ class TopicView(RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.Li
         else:
             ctx['form'] = None
             ctx['next'] = self.get_login_redirect_url()
-        if perms.may_attach_files(self.request.user):
+        if self.perms.may_attach_files(self.request.user):
             aformset = self.get_attachment_formset_class()()
             ctx['aformset'] = aformset
         if defaults.PYBB_FREEZE_FIRST_POST:
@@ -206,7 +206,7 @@ class TopicView(RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.Li
             ctx['first_post'] = None
         ctx['topic'] = self.topic
 
-        if perms.may_vote_in_topic(self.request.user, self.topic) and \
+        if self.perms.may_vote_in_topic(self.request.user, self.topic) and \
                 pybb_topic_poll_not_voted(self.topic, self.request.user):
             ctx['poll_form'] = self.get_poll_form_class()(self.topic)
 
