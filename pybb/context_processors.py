@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
-from pybb import settings as defaults
+from pybb.settings import settings
 
 __author__ = 'zeus'
 
@@ -18,6 +18,6 @@ def processor(request):
         'PYBB_AVATAR_WIDTH',
         'PYBB_AVATAR_HEIGHT'
     ):
-        context[i] = getattr(defaults, i, None)
-    context['PYBB_AVATAR_DIMENSIONS'] = '%sx%s' % (defaults.settings.PYBB_AVATAR_WIDTH, defaults.settings.PYBB_AVATAR_WIDTH)
+        context[i] = getattr(settings, i, None)
+    context['PYBB_AVATAR_DIMENSIONS'] = '%sx%s' % (settings.PYBB_AVATAR_WIDTH, settings.PYBB_AVATAR_WIDTH)
     return context

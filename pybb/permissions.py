@@ -189,11 +189,7 @@ def get_perms():
 
 
 class PermissionsMixin(object):
-    perms_class = defaults.settings.PYBB_PERMISSION_HANDLER
 
-    def __init__(self, *args, **kwargs):
-        try:
-            self.perms = self.perms_class()
-        except TypeError:
-            self.perms = util.resolve_class(self.perms_class)
-        super(PermissionsMixin, self).__init__(*args, **kwargs)
+    @property
+    def perms(self):
+        return get_perms()
