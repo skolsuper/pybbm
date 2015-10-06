@@ -13,7 +13,7 @@ from django.utils.translation import ugettext as _
 from django.views import generic
 from django.views.decorators.csrf import csrf_protect
 
-from pybb import defaults, util
+from pybb import settings as defaults, util
 from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTracker
 from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
 from pybb.views.mixins import RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin
@@ -63,14 +63,14 @@ class CategoryView(PermissionsMixin, RedirectToLoginMixin, generic.DetailView):
         return ctx
 
     def get(self, *args, **kwargs):
-        if defaults.PYBB_NICE_URL and (('id' in kwargs) or ('pk' in kwargs)):
-            return redirect(super(CategoryView, self).get_object(), permanent=defaults.PYBB_NICE_URL_PERMANENT_REDIRECT)
+        if defaults.settings.PYBB_NICE_URL and (('id' in kwargs) or ('pk' in kwargs)):
+            return redirect(super(CategoryView, self).get_object(), permanent=defaults.settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
         return super(CategoryView, self).get(*args, **kwargs)
 
 
 class ForumView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, generic.ListView):
 
-    paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
+    paginate_by = defaults.settings.PYBB_FORUM_PAGE_SIZE
     context_object_name = 'topic_list'
     template_name = 'pybb/forum.html'
 
@@ -105,14 +105,14 @@ class ForumView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, generic.
         return forum
 
     def get(self, *args, **kwargs):
-        if defaults.PYBB_NICE_URL and 'pk' in kwargs:
-            return redirect(self.forum, permanent=defaults.PYBB_NICE_URL_PERMANENT_REDIRECT)
+        if defaults.settings.PYBB_NICE_URL and 'pk' in kwargs:
+            return redirect(self.forum, permanent=defaults.settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
         return super(ForumView, self).get(*args, **kwargs)
 
 
 class LatestTopicsView(PermissionsMixin, PaginatorMixin, generic.ListView):
 
-    paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
+    paginate_by = defaults.settings.PYBB_FORUM_PAGE_SIZE
     context_object_name = 'topic_list'
     template_name = 'pybb/latest_topics.html'
 
@@ -123,13 +123,13 @@ class LatestTopicsView(PermissionsMixin, PaginatorMixin, generic.ListView):
 
 
 class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.ListView):
-    paginate_by = defaults.PYBB_TOPIC_PAGE_SIZE
+    paginate_by = defaults.settings.PYBB_TOPIC_PAGE_SIZE
     template_object_name = 'post_list'
     template_name = 'pybb/topic.html'
 
     def get(self, request, *args, **kwargs):
-        if defaults.PYBB_NICE_URL and 'pk' in kwargs:
-            return redirect(self.topic, permanent=defaults.PYBB_NICE_URL_PERMANENT_REDIRECT)
+        if defaults.settings.PYBB_NICE_URL and 'pk' in kwargs:
+            return redirect(self.topic, permanent=defaults.settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
         response = super(TopicView, self).get(request, *args, **kwargs)
         if self.request.user.is_authenticated():
             self.mark_read()
@@ -169,18 +169,18 @@ class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbForm
     def get_queryset(self):
         if not self.perms.may_view_topic(self.request.user, self.topic):
             raise PermissionDenied
-        if self.request.user.is_authenticated() or not defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER:
+        if self.request.user.is_authenticated() or not defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER:
             Topic.objects.filter(id=self.topic.id).update(views=F('views') + 1)
         else:
             cache_key = util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)
             cache.add(cache_key, 0)
-            if cache.incr(cache_key) % defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER == 0:
+            if cache.incr(cache_key) % defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER == 0:
                 Topic.objects.filter(id=self.topic.id).update(views=F('views') +
-                                                                defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
+                                                                defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
                 cache.set(cache_key, 0)
         qs = self.topic.posts.all().select_related('user')
-        if defaults.PYBB_PROFILE_RELATED_NAME:
-            qs = qs.select_related('user__%s' % defaults.PYBB_PROFILE_RELATED_NAME)
+        if defaults.settings.PYBB_PROFILE_RELATED_NAME:
+            qs = qs.select_related('user__%s' % defaults.settings.PYBB_PROFILE_RELATED_NAME)
         if not self.perms.may_moderate_topic(self.request.user, self.topic):
             qs = self.perms.filter_posts(self.request.user, qs)
         return qs
@@ -192,7 +192,7 @@ class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbForm
             self.request.user.is_moderator = self.perms.may_moderate_topic(self.request.user, self.topic)
             self.request.user.is_subscribed = self.request.user in self.topic.subscribers.all()
             ctx['form'] = self.get_post_form_class()(topic=self.topic)
-        elif defaults.PYBB_ENABLE_ANONYMOUS_POST:
+        elif defaults.settings.PYBB_ENABLE_ANONYMOUS_POST:
             ctx['form'] = self.get_post_form_class()(topic=self.topic)
         else:
             ctx['form'] = None
@@ -200,7 +200,7 @@ class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbForm
         if self.perms.may_attach_files(self.request.user):
             aformset = self.get_attachment_formset_class()()
             ctx['aformset'] = aformset
-        if defaults.PYBB_FREEZE_FIRST_POST:
+        if defaults.settings.PYBB_FREEZE_FIRST_POST:
             ctx['first_post'] = self.topic.head
         else:
             ctx['first_post'] = None

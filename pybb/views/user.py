@@ -9,7 +9,7 @@ from django.utils.decorators import method_decorator
 from django.views import generic
 from django.views.decorators.csrf import csrf_protect
 
-from pybb import compat, defaults, util
+from pybb import compat, settings as defaults, util
 from pybb.models import Topic, Post
 from pybb.views.mixins import PaginatorMixin
 from pybb.permissions import PermissionsMixin
@@ -36,7 +36,7 @@ class UserView(generic.DetailView):
 
 class UserPosts(PermissionsMixin, PaginatorMixin, generic.ListView):
     model = Post
-    paginate_by = defaults.PYBB_TOPIC_PAGE_SIZE
+    paginate_by = defaults.settings.PYBB_TOPIC_PAGE_SIZE
     template_name = 'pybb/user_posts.html'
 
     def dispatch(self, request, *args, **kwargs):
@@ -59,7 +59,7 @@ class UserPosts(PermissionsMixin, PaginatorMixin, generic.ListView):
 
 class UserTopics(PermissionsMixin, PaginatorMixin, generic.ListView):
     model = Topic
-    paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
+    paginate_by = defaults.settings.PYBB_FORUM_PAGE_SIZE
     template_name = 'pybb/user_topics.html'
 
     def dispatch(self, request, *args, **kwargs):

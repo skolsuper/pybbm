@@ -9,20 +9,20 @@ from django.core.validators import validate_email
 from django.template.loader import render_to_string
 from django.utils import translation
 
-from pybb import defaults, util, compat
+from pybb import settings as defaults, util, compat
 
-if defaults.PYBB_USE_DJANGO_MAILER:
+if defaults.settings.PYBB_USE_DJANGO_MAILER:
     try:
         from mailer import send_mass_mail
     except ImportError as e:
         raise ImproperlyConfigured('settings.PYBB_USE_DJANGO_MAILER is {0} but mailer could not be imported.'
-                                   ' Original exception: {1}'.format(defaults.PYBB_USE_DJANGO_MAILER, e.message))
+                                   ' Original exception: {1}'.format(defaults.settings.PYBB_USE_DJANGO_MAILER, e.message))
 else:
     from django.core.mail import send_mass_mail
 
 
 def notify_topic_subscribers(post, current_site, *args, **kwargs):
-    if defaults.PYBB_DISABLE_NOTIFICATIONS:
+    if defaults.settings.PYBB_DISABLE_NOTIFICATIONS:
         return
     topic = post.topic
     if post != topic.head:

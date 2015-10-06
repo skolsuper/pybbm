@@ -13,7 +13,7 @@ from django.utils.decorators import method_decorator
 from django.views import generic
 from django.views.decorators.csrf import csrf_protect
 
-from pybb import compat, defaults, util
+from pybb import compat, settings as defaults, util
 from pybb.models import Forum, Topic, Post
 from pybb.views.mixins import PostEditMixin, RedirectToLoginMixin
 from pybb.permissions import PermissionsMixin
@@ -31,8 +31,8 @@ class AddPostView(PostEditMixin, generic.CreateView):
         if request.user.is_authenticated():
             self.user = request.user
         else:
-            if defaults.PYBB_ENABLE_ANONYMOUS_POST:
-                self.user, new = User.objects.get_or_create(**{username_field: defaults.PYBB_ANONYMOUS_USERNAME})
+            if defaults.settings.PYBB_ENABLE_ANONYMOUS_POST:
+                self.user, new = User.objects.get_or_create(**{username_field: defaults.settings.PYBB_ANONYMOUS_USERNAME})
             else:
                 from django.contrib.auth.views import redirect_to_login
                 return redirect_to_login(request.get_full_path())
@@ -57,7 +57,7 @@ class AddPostView(PostEditMixin, generic.CreateView):
                 else:
                     post = get_object_or_404(Post, pk=quote_id)
                     profile = util.get_pybb_profile(post.user)
-                    self.quote = util._get_markup_quoter(defaults.PYBB_MARKUP)(post.body, profile.get_display_name())
+                    self.quote = util._get_markup_quoter(defaults.settings.PYBB_MARKUP)(post.body, profile.get_display_name())
 
                 if self.quote and request.is_ajax():
                     return HttpResponse(self.quote)
@@ -81,7 +81,7 @@ class AddPostView(PostEditMixin, generic.CreateView):
         return ctx
 
     def get_success_url(self):
-        if (not self.request.user.is_authenticated()) and defaults.PYBB_PREMODERATION:
+        if (not self.request.user.is_authenticated()) and defaults.settings.PYBB_PREMODERATION:
             return reverse('pybb:index')
         return self.object.get_absolute_url()
 
@@ -125,7 +125,7 @@ class PostView(PermissionsMixin, RedirectToLoginMixin, generic.RedirectView):
         if not self.perms.may_view_post(self.request.user, self.post):
             raise PermissionDenied
         count = self.post.topic.posts.filter(created__lt=self.post.created).count() + 1
-        page = math.ceil(count / float(defaults.PYBB_TOPIC_PAGE_SIZE))
+        page = math.ceil(count / float(defaults.settings.PYBB_TOPIC_PAGE_SIZE))
         return '%s?page=%d#post-%d' % (self.post.topic.get_absolute_url(), page, self.post.id)
 
     def get_post(self, **kwargs):

@@ -7,7 +7,7 @@ from django.forms.utils import ErrorList
 from django.http import HttpResponseForbidden, HttpResponseRedirect
 from django.utils.decorators import method_decorator
 
-from pybb import defaults, compat
+from pybb import settings as defaults, compat
 from pybb.compat import get_atomic_func
 from pybb.forms import PostForm, AttachmentFormSet, PollForm, PollAnswerFormSet
 from pybb.models import Topic, Post
@@ -137,7 +137,7 @@ class PostEditMixin(PermissionsMixin, PybbFormsMixin):
                 created = self.object.id is None
                 self.object.save()
 
-                if created or defaults.PYBB_NOTIFY_ON_EDIT:
+                if created or defaults.settings.PYBB_NOTIFY_ON_EDIT:
                     topic_updated.send(Post, post=self.object, current_site=compat.get_current_site(self.request))
                 if save_attachments:
                     aformset.save()
