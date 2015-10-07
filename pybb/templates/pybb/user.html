@@ -19,7 +19,7 @@
             <div>
                 <a href="{% url 'pybb:user_topics' target_user.get_username %}">
                     {% trans "Number of topics" %}:
-                    {{ topic_count }}
+                    {{ target_user.topics.count }}
                 </a>
             </div>
             <div>

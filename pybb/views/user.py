@@ -28,11 +28,6 @@ class UserView(generic.DetailView):
             queryset = self.get_queryset()
         return get_object_or_404(queryset, **{username_field: self.kwargs['username']})
 
-    def get_context_data(self, **kwargs):
-        ctx = super(UserView, self).get_context_data(**kwargs)
-        ctx['topic_count'] = Topic.objects.filter(user=ctx['target_user']).count()
-        return ctx
-
 
 class UserPosts(PermissionsMixin, PaginatorMixin, generic.ListView):
     model = Post

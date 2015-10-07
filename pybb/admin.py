@@ -26,6 +26,9 @@ class CategoryAdmin(admin.ModelAdmin):
 
     inlines = [ForumInlineAdmin]
 
+    def forum_count(self, category):
+        return category.forums.count()
+
 
 class ForumAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
@@ -46,6 +49,9 @@ class ForumAdmin(admin.ModelAdmin):
                 }
             ),
         )
+
+    def topic_count(self, forum):
+        return forum.topics.count()
 
 
 class PollAnswerAdmin(admin.TabularInline):

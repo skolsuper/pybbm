@@ -29,9 +29,6 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
-    def forum_count(self):
-        return self.forums.all().count()
-
     def get_absolute_url(self):
         if settings.PYBB_NICE_URL:
             return reverse('pybb:category', kwargs={'slug': self.slug, })

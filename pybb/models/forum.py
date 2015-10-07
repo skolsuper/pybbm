@@ -9,7 +9,6 @@ from django.utils.translation import ugettext_lazy as _
 
 from pybb.compat import get_user_model_path
 from pybb.models.post import Post
-from pybb.models.topic import Topic
 from pybb.settings import settings
 
 
@@ -32,7 +31,6 @@ class Forum(models.Model):
     moderators = models.ManyToManyField(get_user_model_path(), blank=True, null=True, verbose_name=_('Moderators'))
     updated = models.DateTimeField(_('Updated'), blank=True, null=True)
     post_count = models.IntegerField(_('Post count'), blank=True, default=0)
-    topic_count = models.IntegerField(_('Topic count'), blank=True, default=0)
     hidden = models.BooleanField(_('Hidden'), blank=False, null=False, default=False)
     readed_by = models.ManyToManyField(get_user_model_path(), through='ForumReadTracker', related_name='readed_forums')
     headline = models.TextField(_('Headline'), blank=True, null=True)
@@ -43,18 +41,13 @@ class Forum(models.Model):
         return self.name
 
     def update_counters(self):
-        self.topic_count = Topic.objects.filter(forum=self).count()
-        if self.topic_count:
-            posts = Post.objects.filter(topic__forum_id=self.id)
-            self.post_count = posts.count()
-            if self.post_count:
-                try:
-                    last_post = posts.order_by('-created', '-id')[0]
-                    self.updated = last_post.updated or last_post.created
-                except IndexError:
-                    pass
-        else:
-            self.post_count = 0
+        self.post_count = self.posts.count()
+        if self.post_count:
+            try:
+                last_post = self.posts.order_by('-created', '-id')[0]
+                self.updated = last_post.updated or last_post.created
+            except IndexError:
+                pass
         self.save()
 
     def get_absolute_url(self):
