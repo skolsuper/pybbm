@@ -19,7 +19,7 @@ from pybb import compat, util
 from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser
 from pybb.permissions import get_perms, PermissionsMixin
 from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
-from pybb.views.mixins import PermissionsMixin, PybbFormsMixin
+from pybb.views.mixins import PybbFormsMixin
 
 User = compat.get_user_model()
 username_field = compat.get_username_field()

@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.forms.utils import ErrorList
+from django.forms.util import ErrorList
 from django.http import HttpResponseForbidden, HttpResponseRedirect
 from django.utils.decorators import method_decorator
 

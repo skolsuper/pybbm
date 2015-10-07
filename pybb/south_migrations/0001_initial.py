@@ -4,18 +4,18 @@ from south.db import db
 from django.db import models
 from south.v2 import SchemaMigration
 from pybb.compat import get_image_field_full_name, get_user_model_path, get_user_frozen_models
-from pybb.defaults import PYBB_INITIAL_CUSTOM_USER_MIGRATION
+from pybb.settings import settings
 
 
 AUTH_USER = get_user_model_path()
 AUTH_USER_COLUMN = AUTH_USER.split('.')[-1].lower()
 
 
-if PYBB_INITIAL_CUSTOM_USER_MIGRATION:
+if settings.PYBB_INITIAL_CUSTOM_USER_MIGRATION:
     # Runs custom user migrations (if there are) before
     # running pybb migrations
     DEPENDS_ON_CUSTOM_USER_MIGRATION = (
-        (AUTH_USER.split('.')[0], PYBB_INITIAL_CUSTOM_USER_MIGRATION),
+        (AUTH_USER.split('.')[0], settings.PYBB_INITIAL_CUSTOM_USER_MIGRATION),
     )
 else:
     DEPENDS_ON_CUSTOM_USER_MIGRATION = ()
