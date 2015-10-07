@@ -4,13 +4,13 @@ from __future__ import unicode_literals
 import re
 from django.conf import settings
 from django.utils.html import escape
-from pybb.defaults import PYBB_SMILES, PYBB_SMILES_PREFIX
+from pybb.settings import settings as pybb_settings
 from django.forms import Textarea
 
 
 def smile_it(s):
-    for smile, url in PYBB_SMILES.items():
-        s = s.replace(smile, '<img src="%s%s%s" alt="smile" />' % (settings.STATIC_URL, PYBB_SMILES_PREFIX, url))
+    for smile, url in pybb_settings.PYBB_SMILES.items():
+        s = s.replace(smile, '<img src="%s%s%s" alt="smile" />' % (settings.STATIC_URL, pybb_settings.PYBB_SMILES_PREFIX, url))
     return s
 
 

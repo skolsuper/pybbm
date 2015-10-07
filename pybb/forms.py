@@ -10,7 +10,7 @@ from django.forms.models import inlineformset_factory, BaseInlineFormSet
 from django.utils.translation import ugettext, ugettext_lazy
 from django.utils.timezone import now as tznow
 
-from pybb import compat, defaults, util
+from pybb import compat, settings as defaults, util
 from pybb.models import Topic, Post, Attachment, PollAnswer
 
 
@@ -24,7 +24,7 @@ class AttachmentForm(forms.ModelForm):
         fields = ('file', )
 
     def clean_file(self):
-        if self.cleaned_data['file'].size > defaults.PYBB_ATTACHMENT_SIZE_LIMIT:
+        if self.cleaned_data['file'].size > defaults.settings.PYBB_ATTACHMENT_SIZE_LIMIT:
             raise forms.ValidationError(ugettext('Attachment is too big'))
         return self.cleaned_data['file']
 
@@ -41,14 +41,14 @@ class BasePollAnswerFormset(BaseInlineFormSet):
     def clean(self):
         forms_cnt = (len(self.initial_forms) + len([form for form in self.extra_forms if form.has_changed()]) -
                      len(self.deleted_forms))
-        if forms_cnt > defaults.PYBB_POLL_MAX_ANSWERS:
+        if forms_cnt > defaults.settings.PYBB_POLL_MAX_ANSWERS:
             raise forms.ValidationError(
-                ugettext('You can''t add more than %s answers for poll' % defaults.PYBB_POLL_MAX_ANSWERS))
+                ugettext('You can''t add more than %s answers for poll' % defaults.settings.PYBB_POLL_MAX_ANSWERS))
         if forms_cnt < 2:
             raise forms.ValidationError(ugettext('Add two or more answers for this poll'))
 
 
-PollAnswerFormSet = inlineformset_factory(Topic, PollAnswer, extra=2, max_num=defaults.PYBB_POLL_MAX_ANSWERS,
+PollAnswerFormSet = inlineformset_factory(Topic, PollAnswer, extra=2, max_num=defaults.settings.PYBB_POLL_MAX_ANSWERS,
                                           form=PollAnswerForm, formset=BasePollAnswerFormset)
 
 
@@ -101,16 +101,16 @@ class PostForm(forms.ModelForm):
             if not self.may_edit_topic_slug:
                 del self.fields['slug']
 
-        self.available_smiles = defaults.PYBB_SMILES
-        self.smiles_prefix = defaults.PYBB_SMILES_PREFIX
+        self.available_smiles = defaults.settings.PYBB_SMILES
+        self.smiles_prefix = defaults.settings.PYBB_SMILES_PREFIX
 
     def clean_body(self):
         body = self.cleaned_data['body']
         user = self.user or self.instance.user
-        if defaults.PYBB_BODY_VALIDATOR:
-            defaults.PYBB_BODY_VALIDATOR(user, body)
+        if defaults.settings.PYBB_BODY_VALIDATOR:
+            defaults.settings.PYBB_BODY_VALIDATOR(user, body)
 
-        for cleaner in defaults.PYBB_BODY_CLEANERS:
+        for cleaner in defaults.settings.PYBB_BODY_CLEANERS:
             body = util.get_body_cleaner(cleaner)(user, body)
         return body
 
@@ -141,8 +141,8 @@ class PostForm(forms.ModelForm):
             return post, post.topic
 
         allow_post = True
-        if defaults.PYBB_PREMODERATION:
-            allow_post = defaults.PYBB_PREMODERATION(self.user, self.cleaned_data['body'])
+        if defaults.settings.PYBB_PREMODERATION:
+            allow_post = defaults.settings.PYBB_PREMODERATION(self.user, self.cleaned_data['body'])
         if self.forum:
             topic = Topic(
                 forum=self.forum,
@@ -177,17 +177,17 @@ try:
             self.fields['signature'].widget = forms.Textarea(attrs={'rows': 2, 'cols:': 60})
 
         def clean_avatar(self):
-            if self.cleaned_data['avatar'] and (self.cleaned_data['avatar'].size > defaults.PYBB_MAX_AVATAR_SIZE):
+            if self.cleaned_data['avatar'] and (self.cleaned_data['avatar'].size > defaults.settings.PYBB_MAX_AVATAR_SIZE):
                 forms.ValidationError(ugettext('Avatar is too large, max size: %s bytes' %
-                                               defaults.PYBB_MAX_AVATAR_SIZE))
+                                               defaults.settings.PYBB_MAX_AVATAR_SIZE))
             return self.cleaned_data['avatar']
 
         def clean_signature(self):
             value = self.cleaned_data['signature'].strip()
-            if len(re.findall(r'\n', value)) > defaults.PYBB_SIGNATURE_MAX_LINES:
-                raise forms.ValidationError('Number of lines is limited to %d' % defaults.PYBB_SIGNATURE_MAX_LINES)
-            if len(value) > defaults.PYBB_SIGNATURE_MAX_LENGTH:
-                raise forms.ValidationError('Length of signature is limited to %d' % defaults.PYBB_SIGNATURE_MAX_LENGTH)
+            if len(re.findall(r'\n', value)) > defaults.settings.PYBB_SIGNATURE_MAX_LINES:
+                raise forms.ValidationError('Number of lines is limited to %d' % defaults.settings.PYBB_SIGNATURE_MAX_LINES)
+            if len(value) > defaults.settings.PYBB_SIGNATURE_MAX_LENGTH:
+                raise forms.ValidationError('Length of signature is limited to %d' % defaults.settings.PYBB_SIGNATURE_MAX_LENGTH)
             return value
 except FieldError:
     pass

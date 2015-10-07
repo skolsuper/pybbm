@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 import datetime
 import os
+
 from django.contrib.auth.models import Permission
 from django.conf import settings
 from django.core import mail
@@ -14,10 +15,10 @@ from django.test import TestCase, skipUnlessDBFeature
 from django.test.client import Client
 from django.test.utils import override_settings
 from django.utils import timezone
-from pybb import permissions, views as pybb_views
+
+from pybb import permissions
 from pybb.templatetags.pybb_tags import pybb_is_topic_unread, pybb_topic_unread, pybb_forum_unread, \
     pybb_get_latest_topics, pybb_get_latest_posts
-
 from pybb import compat, util
 
 User = compat.get_user_model()
@@ -29,6 +30,7 @@ except ImportError:
     raise Exception('PyBB requires lxml for self testing')
 
 from pybb import defaults
+from pybb.settings import settings as pybb_settings
 from pybb.models import Topic, TopicReadTracker, Forum, ForumReadTracker, Post, Category, PollAnswer
 
 
@@ -64,10 +66,10 @@ class SharedTestModule(object):
 
 class FeaturesTest(TestCase, SharedTestModule):
     def setUp(self):
-        self.ORIG_PYBB_ENABLE_ANONYMOUS_POST = defaults.PYBB_ENABLE_ANONYMOUS_POST
-        self.ORIG_PYBB_PREMODERATION = defaults.PYBB_PREMODERATION
-        defaults.PYBB_PREMODERATION = False
-        defaults.PYBB_ENABLE_ANONYMOUS_POST = False
+        self.ORIG_PYBB_ENABLE_ANONYMOUS_POST = pybb_settings.PYBB_ENABLE_ANONYMOUS_POST
+        self.ORIG_PYBB_PREMODERATION = pybb_settings.PYBB_PREMODERATION
+        pybb_settings.PYBB_PREMODERATION = False
+        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = False
         self.create_user()
         self.create_initial()
         mail.outbox = []
@@ -81,7 +83,7 @@ class FeaturesTest(TestCase, SharedTestModule):
         tree = html.fromstring(response.content, parser=parser)
         self.assertContains(response, 'foo')
         self.assertContains(response, self.forum.get_absolute_url())
-        self.assertTrue(defaults.PYBB_DEFAULT_TITLE in tree.xpath('//title')[0].text_content())
+        self.assertTrue(pybb_settings.PYBB_DEFAULT_TITLE in tree.xpath('//title')[0].text_content())
         self.assertEqual(len(response.context['categories']), 1)
         self.assertEqual(len(response.context['categories'][0].forums_accessed), 1)
 
@@ -123,15 +125,15 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.assertEqual(len(response.context['form'].errors), 0)
 
     def test_pagination_and_topic_addition(self):
-        for i in range(0, defaults.PYBB_FORUM_PAGE_SIZE + 3):
+        for i in range(0, pybb_settings.PYBB_FORUM_PAGE_SIZE + 3):
             topic = Topic(name='topic_%s_' % i, forum=self.forum, user=self.user)
             topic.save()
         url = self.forum.get_absolute_url()
         response = self.client.get(url)
-        self.assertEqual(len(response.context['topic_list']), defaults.PYBB_FORUM_PAGE_SIZE)
+        self.assertEqual(len(response.context['topic_list']), pybb_settings.PYBB_FORUM_PAGE_SIZE)
         self.assertTrue(response.context['is_paginated'])
         self.assertEqual(response.context['paginator'].num_pages,
-                         int((defaults.PYBB_FORUM_PAGE_SIZE + 3) / defaults.PYBB_FORUM_PAGE_SIZE) + 1)
+                         int((pybb_settings.PYBB_FORUM_PAGE_SIZE + 3) / pybb_settings.PYBB_FORUM_PAGE_SIZE) + 1)
 
     def test_bbcode_and_topic_title(self):
         response = self.client.get(self.topic.get_absolute_url())
@@ -905,8 +907,8 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.assertNotIn(user2, self.topic.subscribers.all())
 
     def test_subscription_disabled(self):
-        orig_conf = defaults.PYBB_DISABLE_SUBSCRIPTIONS
-        defaults.PYBB_DISABLE_SUBSCRIPTIONS = True
+        orig_conf = pybb_settings.PYBB_DISABLE_SUBSCRIPTIONS
+        pybb_settings.PYBB_DISABLE_SUBSCRIPTIONS = True
 
         user2 = User.objects.create_user(username='user2', password='user2', email='user2@someserver.com')
         user3 = User.objects.create_user(username='user3', password='user3', email='user3@someserver.com')
@@ -938,11 +940,11 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to[0], user3.email)
 
-        defaults.PYBB_DISABLE_SUBSCRIPTIONS = orig_conf
+        pybb_settings.PYBB_DISABLE_SUBSCRIPTIONS = orig_conf
 
     def test_notifications_disabled(self):
-        orig_conf = defaults.PYBB_DISABLE_NOTIFICATIONS
-        defaults.PYBB_DISABLE_NOTIFICATIONS = True
+        orig_conf = pybb_settings.PYBB_DISABLE_NOTIFICATIONS
+        pybb_settings.PYBB_DISABLE_NOTIFICATIONS = True
 
         user2 = User.objects.create_user(username='user2', password='user2', email='user2@someserver.com')
         user3 = User.objects.create_user(username='user3', password='user3', email='user3@someserver.com')
@@ -971,7 +973,7 @@ class FeaturesTest(TestCase, SharedTestModule):
         # there should be no email in the outbox
         self.assertEqual(len(mail.outbox), 0)
         
-        defaults.PYBB_DISABLE_NOTIFICATIONS = orig_conf
+        pybb_settings.PYBB_DISABLE_NOTIFICATIONS = orig_conf
 
     @skipUnlessDBFeature('supports_microsecond_precision')
     def test_topic_updated(self):
@@ -1085,18 +1087,18 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.assertEqual(response.status_code, 200)
 
     def tearDown(self):
-        defaults.PYBB_ENABLE_ANONYMOUS_POST = self.ORIG_PYBB_ENABLE_ANONYMOUS_POST
-        defaults.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
+        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = self.ORIG_PYBB_ENABLE_ANONYMOUS_POST
+        pybb_settings.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
 
 
 class AnonymousTest(TestCase, SharedTestModule):
     def setUp(self):
-        self.ORIG_PYBB_ENABLE_ANONYMOUS_POST = defaults.PYBB_ENABLE_ANONYMOUS_POST
-        self.ORIG_PYBB_ANONYMOUS_USERNAME = defaults.PYBB_ANONYMOUS_USERNAME
-        self.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER
+        self.ORIG_PYBB_ENABLE_ANONYMOUS_POST = pybb_settings.PYBB_ENABLE_ANONYMOUS_POST
+        self.ORIG_PYBB_ANONYMOUS_USERNAME = pybb_settings.PYBB_ANONYMOUS_USERNAME
+        self.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER
 
-        defaults.PYBB_ENABLE_ANONYMOUS_POST = True
-        defaults.PYBB_ANONYMOUS_USERNAME = 'Anonymous'
+        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = True
+        pybb_settings.PYBB_ANONYMOUS_USERNAME = 'Anonymous'
         self.user = User.objects.create_user('Anonymous', 'Anonymous@localhost', 'Anonymous')
         self.category = Category.objects.create(name='foo')
         self.forum = Forum.objects.create(name='xfoo', description='bar', category=self.category)
@@ -1106,9 +1108,9 @@ class AnonymousTest(TestCase, SharedTestModule):
         self.user.user_permissions.add(add_post_permission)
 
     def tearDown(self):
-        defaults.PYBB_ENABLE_ANONYMOUS_POST = self.ORIG_PYBB_ENABLE_ANONYMOUS_POST
-        defaults.PYBB_ANONYMOUS_USERNAME = self.ORIG_PYBB_ANONYMOUS_USERNAME
-        defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = self.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER
+        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = self.ORIG_PYBB_ENABLE_ANONYMOUS_POST
+        pybb_settings.PYBB_ANONYMOUS_USERNAME = self.ORIG_PYBB_ANONYMOUS_USERNAME
+        pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = self.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER
 
     def test_anonymous_posting(self):
         post_url = reverse('pybb:add_post', kwargs={'topic_id': self.topic.id})
@@ -1125,18 +1127,18 @@ class AnonymousTest(TestCase, SharedTestModule):
         url = self.topic.get_absolute_url()
         self.client.get(url)
         self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)), 1)
-        for _ in range(defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER - 2):
+        for _ in range(pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER - 2):
             self.client.get(url)
         self.assertEqual(Topic.objects.get(id=self.topic.id).views, 0)
         self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)),
-                         defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER - 1)
+                         pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER - 1)
         self.client.get(url)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).views, defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
+        self.assertEqual(Topic.objects.get(id=self.topic.id).views, pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
         self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)), 0)
 
         views = Topic.objects.get(id=self.topic.id).views
 
-        defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = None
+        pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = None
         self.client.get(url)
         self.assertEqual(Topic.objects.get(id=self.topic.id).views, views + 1)
         self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)), 0)
@@ -1154,8 +1156,8 @@ def premoderate_test(user, post):
 
 class PreModerationTest(TestCase, SharedTestModule):
     def setUp(self):
-        self.ORIG_PYBB_PREMODERATION = defaults.PYBB_PREMODERATION
-        defaults.PYBB_PREMODERATION = premoderate_test
+        self.ORIG_PYBB_PREMODERATION = pybb_settings.PYBB_PREMODERATION
+        pybb_settings.PYBB_PREMODERATION = premoderate_test
         self.create_user()
         self.create_initial()
         mail.outbox = []
@@ -1258,15 +1260,15 @@ class PreModerationTest(TestCase, SharedTestModule):
         self.assertEqual(response.status_code, 200)
 
     def tearDown(self):
-        defaults.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
+        pybb_settings.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
 
 
 class AttachmentTest(TestCase, SharedTestModule):
     def setUp(self):
-        self.PYBB_ATTACHMENT_ENABLE = defaults.PYBB_ATTACHMENT_ENABLE
-        defaults.PYBB_ATTACHMENT_ENABLE = True
-        self.ORIG_PYBB_PREMODERATION = defaults.PYBB_PREMODERATION
-        defaults.PYBB_PREMODERATION = False
+        self.PYBB_ATTACHMENT_ENABLE = pybb_settings.PYBB_ATTACHMENT_ENABLE
+        pybb_settings.PYBB_ATTACHMENT_ENABLE = True
+        self.ORIG_PYBB_PREMODERATION = pybb_settings.PYBB_PREMODERATION
+        pybb_settings.PYBB_PREMODERATION = False
         self.file_name = os.path.join(os.path.dirname(__file__), 'static', 'pybb', 'img', 'attachment.png')
         self.create_user()
         self.create_initial()
@@ -1297,16 +1299,16 @@ class AttachmentTest(TestCase, SharedTestModule):
                 self.client.post(add_post_url, values, follow=True)
 
     def tearDown(self):
-        defaults.PYBB_ATTACHMENT_ENABLE = self.PYBB_ATTACHMENT_ENABLE
-        defaults.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
+        pybb_settings.PYBB_ATTACHMENT_ENABLE = self.PYBB_ATTACHMENT_ENABLE
+        pybb_settings.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
 
 
 class PollTest(TestCase, SharedTestModule):
     def setUp(self):
         self.create_user()
         self.create_initial()
-        self.PYBB_POLL_MAX_ANSWERS = defaults.PYBB_POLL_MAX_ANSWERS
-        defaults.PYBB_POLL_MAX_ANSWERS = 2
+        self.PYBB_POLL_MAX_ANSWERS = pybb_settings.PYBB_POLL_MAX_ANSWERS
+        pybb_settings.PYBB_POLL_MAX_ANSWERS = 2
 
     def test_poll_add(self):
         add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
@@ -1499,7 +1501,7 @@ class PollTest(TestCase, SharedTestModule):
         self.assertEqual(response.status_code, 403)
 
     def tearDown(self):
-        defaults.PYBB_POLL_MAX_ANSWERS = self.PYBB_POLL_MAX_ANSWERS
+        pybb_settings.PYBB_POLL_MAX_ANSWERS = self.PYBB_POLL_MAX_ANSWERS
 
 
 class FiltersTest(TestCase, SharedTestModule):
@@ -1716,22 +1718,7 @@ class MarkupParserTest(TestCase, SharedTestModule):
             self.assertEqual(util.get_body_cleaner(cleaner)(staff, source), source)
 
 
-def _attach_perms_class(class_name):
-    """
-    override the permission handler. this cannot be done with @override_settings as
-    permissions.perms is already imported at import point, instead we got to monkeypatch
-    the modules (not really nice, but only an issue in tests)
-    """
-    pybb_views.perms = permissions.perms = util.resolve_class(class_name)
-
-
-def _detach_perms_class():
-    """
-    reset permission handler (otherwise other tests may fail)
-    """
-    pybb_views.perms = permissions.perms = util.resolve_class('pybb.permissions.DefaultPermissionHandler')
-
-
+@override_settings(PYBB_PERMISSION_HANDLER='pybb.tests.CustomPermissionHandler')
 class CustomPermissionHandlerTest(TestCase, SharedTestModule):
     """ test custom permission handler """
 
@@ -1752,11 +1739,6 @@ class CustomPermissionHandlerTest(TestCase, SharedTestModule):
         for t in Topic.objects.all()[0:2]:
             t.closed = True
             t.save()
-
-        _attach_perms_class('pybb.tests.CustomPermissionHandler')
-
-    def tearDown(self):
-        _detach_perms_class()
 
     def test_category_permission(self):
         for c in Category.objects.all():
@@ -1890,36 +1872,30 @@ class LogonRedirectTest(TestCase, SharedTestModule):
 
     @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False)
     def test_redirect_topic_add(self):
-        _attach_perms_class('pybb.tests.RestrictEditingHandler')
+        with self.settings(PYBB_PERMISSION_HANDLER='pybb.tests.RestrictEditingHandler'):
+            # access without user should be redirected
+            add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
+            r = self.get_with_user(add_topic_url)
+            self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % add_topic_url)
 
-        # access without user should be redirected
-        add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
-        r = self.get_with_user(add_topic_url)
-        self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % add_topic_url)
-
-        # access with (unauthorized) user should get 403 (forbidden)
-        r = self.get_with_user(add_topic_url, 'staff', 'staff')
-        self.assertEquals(r.status_code, 403)
-
-        _detach_perms_class()
+            # access with (unauthorized) user should get 403 (forbidden)
+            r = self.get_with_user(add_topic_url, 'staff', 'staff')
+            self.assertEquals(r.status_code, 403)
 
         # allowed user is allowed
         r = self.get_with_user(add_topic_url, 'staff', 'staff')
         self.assertEquals(r.status_code, 200)
 
     def test_redirect_post_edit(self):
-        _attach_perms_class('pybb.tests.RestrictEditingHandler')
+        with self.settings(PYBB_PERMISSION_HANDLER='pybb.tests.RestrictEditingHandler'):
+            # access without user should be redirected
+            edit_post_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})
+            r = self.get_with_user(edit_post_url)
+            self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % edit_post_url)
 
-        # access without user should be redirected
-        edit_post_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})
-        r = self.get_with_user(edit_post_url)
-        self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % edit_post_url)
-
-        # access with (unauthorized) user should get 403 (forbidden)
-        r = self.get_with_user(edit_post_url, 'staff', 'staff')
-        self.assertEquals(r.status_code, 403)
-
-        _detach_perms_class()
+            # access with (unauthorized) user should get 403 (forbidden)
+            r = self.get_with_user(edit_post_url, 'staff', 'staff')
+            self.assertEquals(r.status_code, 403)
 
         # allowed user is allowed
         r = self.get_with_user(edit_post_url, 'staff', 'staff')
@@ -1927,25 +1903,25 @@ class LogonRedirectTest(TestCase, SharedTestModule):
         
     def test_profile_autocreation_signal_on(self):
         user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
-        profile = getattr(user, defaults.PYBB_PROFILE_RELATED_NAME, None)
+        profile = getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME, None)
         self.assertIsNotNone(profile)
         self.assertEqual(type(profile), util.get_pybb_profile_model())
         user.delete()
 
     def test_profile_autocreation_middleware(self):
         user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
-        getattr(user, defaults.PYBB_PROFILE_RELATED_NAME).delete()
+        getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME).delete()
         #just display a page : the middleware should create the profile
         self.get_with_user('/', 'cronos', 'cronos')
         user = User.objects.get(username='cronos')
-        profile = getattr(user, defaults.PYBB_PROFILE_RELATED_NAME, None)
+        profile = getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME, None)
         self.assertIsNotNone(profile)
         self.assertEqual(type(profile), util.get_pybb_profile_model())
         user.delete()
 
     def test_user_delete_cascade(self):
         user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
-        profile = getattr(user, defaults.PYBB_PROFILE_RELATED_NAME, None)
+        profile = getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME, None)
         self.assertIsNotNone(profile)
         post = Post(topic=self.topic, user=user, body='I \'ll be back')
         post.save()
@@ -1962,16 +1938,16 @@ class LogonRedirectTest(TestCase, SharedTestModule):
 class NiceUrlsTest(TestCase, SharedTestModule):
     def __init__(self, *args, **kwargs):
         super(NiceUrlsTest, self).__init__(*args, **kwargs)
-        self.ORIGINAL_PYBB_NICE_URL = defaults.PYBB_NICE_URL
-        defaults.PYBB_NICE_URL = True
+        self.ORIGINAL_PYBB_NICE_URL = pybb_settings.PYBB_NICE_URL
+        pybb_settings.PYBB_NICE_URL = True
         self.urls = settings.ROOT_URLCONF
 
     def setUp(self):
         self.create_user()
         self.login_client()
         self.create_initial()
-        self.ORIGINAL_PYBB_NICE_URL = defaults.PYBB_NICE_URL
-        defaults.PYBB_NICE_URL = True
+        self.ORIGINAL_PYBB_NICE_URL = pybb_settings.PYBB_NICE_URL
+        pybb_settings.PYBB_NICE_URL = True
 
     def test_unicode_slugify(self):
         self.assertEqual(compat.slugify('北京 (China), Москва (Russia), é_è (a sad smiley !)'),
@@ -2014,9 +1990,9 @@ class NiceUrlsTest(TestCase, SharedTestModule):
 
     def test_fail_on_too_many_duplicate_slug(self):
 
-        original_duplicate_limit = defaults.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT
+        original_duplicate_limit = pybb_settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT
 
-        defaults.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT = 200
+        pybb_settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT = 200
 
         try:
             for _ in iter(range(200)):
@@ -2026,7 +2002,7 @@ class NiceUrlsTest(TestCase, SharedTestModule):
         with self.assertRaises(ValidationError):
             Topic.objects.create(name='dolly', forum=self.forum, user=self.user)
 
-        defaults.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT = original_duplicate_limit
+        pybb_settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT = original_duplicate_limit
 
     def test_long_duplicate_slug(self):
         long_name = 'abcde' * 51  # 255 symbols
@@ -2068,23 +2044,22 @@ class NiceUrlsTest(TestCase, SharedTestModule):
         slug_nb = len(Topic.objects.filter(slug__startswith=compat.slugify(self.topic.name))) - 1
         self.assertIsNotNone = Topic.objects.get(slug='%s-%d' % (self.topic.name, slug_nb))
 
-        _attach_perms_class('pybb.tests.CustomPermissionHandler')
-        response = self.client.get(add_topic_url)
-        inputs = dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % "post-form")[0].inputs)
-        self.assertIn('slug', inputs)
-        values = self.get_form_values(response)
-        values.update({'name': self.topic.name, 'body': '[b]Test slug body[/b]',
-                       'poll_type': 0, 'slug': 'test_slug'})
-        response = self.client.post(add_topic_url, data=values, follow=True)
-        self.assertIsNotNone = Topic.objects.get(slug='test_slug')
-        _detach_perms_class()
+        with self.settings(PYBB_PERMISSION_HANDLER='pybb.tests.CustomPermissionHandler'):
+            response = self.client.get(add_topic_url)
+            inputs = dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % "post-form")[0].inputs)
+            self.assertIn('slug', inputs)
+            values = self.get_form_values(response)
+            values.update({'name': self.topic.name, 'body': '[b]Test slug body[/b]',
+                           'poll_type': 0, 'slug': 'test_slug'})
+            response = self.client.post(add_topic_url, data=values, follow=True)
+            self.assertIsNotNone = Topic.objects.get(slug='test_slug')
 
     def test_old_url_redirection(self):
 
-        original_perm_redirect = defaults.PYBB_NICE_URL_PERMANENT_REDIRECT
+        original_perm_redirect = pybb_settings.PYBB_NICE_URL_PERMANENT_REDIRECT
 
         for redirect_status in [301, 302]:
-            defaults.PYBB_NICE_URL_PERMANENT_REDIRECT = redirect_status == 301
+            pybb_settings.PYBB_NICE_URL_PERMANENT_REDIRECT = redirect_status == 301
 
             response = self.client.get(reverse("pybb:category", kwargs={"pk": self.category.pk}))
             self.assertRedirects(response, self.category.get_absolute_url(), status_code=redirect_status)
@@ -2095,7 +2070,7 @@ class NiceUrlsTest(TestCase, SharedTestModule):
             response = self.client.get(reverse("pybb:topic", kwargs={"pk": self.topic.pk}))
             self.assertRedirects(response, self.topic.get_absolute_url(), status_code=redirect_status)
 
-        defaults.PYBB_NICE_URL_PERMANENT_REDIRECT = original_perm_redirect
+        pybb_settings.PYBB_NICE_URL_PERMANENT_REDIRECT = original_perm_redirect
 
     def tearDown(self):
-        defaults.PYBB_NICE_URL = self.ORIGINAL_PYBB_NICE_URL
+        pybb_settings.PYBB_NICE_URL = self.ORIGINAL_PYBB_NICE_URL

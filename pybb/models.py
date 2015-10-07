@@ -11,7 +11,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.timezone import now as tznow
 
 from pybb.compat import get_user_model_path, get_username_field, get_atomic_func, slugify
-from pybb import defaults
+from pybb import settings as defaults
 from pybb.profiles import PybbProfile
 from pybb.util import unescape, FilePathGenerator, _get_markup_formatter
 
@@ -46,7 +46,7 @@ class Category(models.Model):
         return self.forums.all().count()
 
     def get_absolute_url(self):
-        if defaults.PYBB_NICE_URL:
+        if defaults.settings.PYBB_NICE_URL:
             return reverse('pybb:category', kwargs={'slug': self.slug, })
         return reverse('pybb:category', kwargs={'pk': self.id})
 
@@ -101,7 +101,7 @@ class Forum(models.Model):
         self.save()
 
     def get_absolute_url(self):
-        if defaults.PYBB_NICE_URL:
+        if defaults.settings.PYBB_NICE_URL:
             return reverse('pybb:forum', kwargs={'slug': self.slug, 'category_slug': self.category.slug})
         return reverse('pybb:forum', kwargs={'pk': self.id})
 
@@ -181,7 +181,7 @@ class Topic(models.Model):
             return None
 
     def get_absolute_url(self):
-        if defaults.PYBB_NICE_URL:
+        if defaults.settings.PYBB_NICE_URL:
             return reverse('pybb:topic', kwargs={'slug': self.slug, 'forum_slug': self.forum.slug, 'category_slug': self.forum.category.slug})
         return reverse('pybb:topic', kwargs={'pk': self.id})
 
@@ -347,7 +347,7 @@ class Attachment(models.Model):
     post = models.ForeignKey(Post, verbose_name=_('Post'), related_name='attachments')
     size = models.IntegerField(_('Size'))
     file = models.FileField(_('File'),
-                            upload_to=FilePathGenerator(to=defaults.PYBB_ATTACHMENT_UPLOAD_TO))
+                            upload_to=FilePathGenerator(to=defaults.settings.PYBB_ATTACHMENT_UPLOAD_TO))
 
     def save(self, *args, **kwargs):
         self.size = self.file.size
@@ -492,9 +492,9 @@ def create_or_check_slug(instance, model, **extra_filters):
     while slug_is_not_unique:
         count += 1
 
-        if count >= defaults.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT:
+        if count >= defaults.settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT:
             msg = _('After %(limit)s attemps, there is not any unique slug value for "%(slug)s"')
-            raise ValidationError(msg % {'limit': defaults.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT,
+            raise ValidationError(msg % {'limit': defaults.settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT,
                                          'slug': initial_slug})
 
         count_len = len(str(count))

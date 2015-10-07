@@ -11,11 +11,13 @@ from django.utils.translation import ugettext as _
 from pybb import compat
 
 from pybb.compat import get_username_field, get_user_model
-from pybb.defaults import (
-    PYBB_MARKUP, PYBB_MARKUP_ENGINES_PATHS,
-    PYBB_MARKUP_ENGINES, PYBB_QUOTE_ENGINES
-)
+from pybb.settings import settings
 from pybb.markup.base import BaseParser
+
+PYBB_MARKUP = settings.PYBB_MARKUP
+PYBB_MARKUP_ENGINES_PATHS = settings.PYBB_MARKUP_ENGINES_PATHS
+PYBB_MARKUP_ENGINES = settings.PYBB_MARKUP_ENGINES
+PYBB_QUOTE_ENGINES = settings.PYBB_QUOTE_ENGINES
 
 # TODO in the next major release : delete _MARKUP_ENGINES_FORMATTERS and _MARKUP_ENGINES_QUOTERS
 _MARKUP_ENGINES = {}
@@ -131,25 +133,25 @@ def unescape(text):
 
 
 def get_pybb_profile(user):
-    from pybb import defaults
+    from pybb import settings as defaults
 
     if not user.is_authenticated():
-        if defaults.PYBB_ENABLE_ANONYMOUS_POST:
-            user = get_user_model().objects.get(**{get_username_field(): defaults.PYBB_ANONYMOUS_USERNAME})
+        if defaults.settings.PYBB_ENABLE_ANONYMOUS_POST:
+            user = get_user_model().objects.get(**{get_username_field(): defaults.settings.PYBB_ANONYMOUS_USERNAME})
         else:
             raise ValueError(_('Can\'t get profile for anonymous user'))
 
-    if defaults.PYBB_PROFILE_RELATED_NAME:
-        return getattr(user, defaults.PYBB_PROFILE_RELATED_NAME)
+    if defaults.settings.PYBB_PROFILE_RELATED_NAME:
+        return getattr(user, defaults.settings.PYBB_PROFILE_RELATED_NAME)
     else:
         return user
 
 
 def get_pybb_profile_model():
-    from pybb import defaults
+    from pybb import settings as defaults
 
-    if defaults.PYBB_PROFILE_RELATED_NAME:
-        return compat.get_related_model_class(get_user_model(), defaults.PYBB_PROFILE_RELATED_NAME)
+    if defaults.settings.PYBB_PROFILE_RELATED_NAME:
+        return compat.get_related_model_class(get_user_model(), defaults.settings.PYBB_PROFILE_RELATED_NAME)
     else:
         return get_user_model()
 

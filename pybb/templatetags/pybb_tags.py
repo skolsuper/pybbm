@@ -23,8 +23,8 @@ except ImportError:
     pytils_enabled = False
 
 from pybb.models import TopicReadTracker, ForumReadTracker, PollAnswerUser, Topic, Post
-from pybb.permissions import perms
-from pybb import defaults, util, compat
+from pybb.permissions import get_perms
+from pybb import settings as defaults, util, compat
 
 
 register = template.Library()
@@ -106,7 +106,7 @@ def pybb_topic_moderated_by(topic, user):
     warnings.warn("pybb_topic_moderated_by filter is deprecated and will be removed in later releases. "
                   "Use pybb_may_moderate_topic(user, topic) filter instead",
                   DeprecationWarning)
-    return perms.may_moderate_topic(user, topic)
+    return get_perms().may_moderate_topic(user, topic)
 
 @register.filter
 def pybb_editable_by(post, user):
@@ -116,7 +116,7 @@ def pybb_editable_by(post, user):
     warnings.warn("pybb_editable_by filter is deprecated and will be removed in later releases. "
                   "Use pybb_may_edit_post(user, post) filter instead",
                   DeprecationWarning)
-    return perms.may_edit_post(user, post)
+    return get_perms().may_edit_post(user, post)
 
 
 @register.filter
@@ -199,7 +199,7 @@ def pybb_forum_unread(forums, user):
 
 @register.filter
 def pybb_topic_inline_pagination(topic):
-    page_count = int(math.ceil(topic.post_count / float(defaults.PYBB_TOPIC_PAGE_SIZE)))
+    page_count = int(math.ceil(topic.post_count / float(defaults.settings.PYBB_TOPIC_PAGE_SIZE)))
     if page_count <= 5:
         return range(1, page_count+1)
     return list(range(1, 5)) + ['...', page_count]
@@ -228,7 +228,7 @@ def pybb_get_latest_topics(context, cnt=5, user=None):
     qs = Topic.objects.all().order_by('-updated', '-created', '-id')
     if not user:
         user = context['user']
-    qs = perms.filter_topics(user, qs)
+    qs = get_perms().filter_topics(user, qs)
     return qs[:cnt]
 
 
@@ -237,11 +237,13 @@ def pybb_get_latest_posts(context, cnt=5, user=None):
     qs = Post.objects.all().order_by('-created', '-id')
     if not user:
         user = context['user']
-    qs = perms.filter_posts(user, qs)
+    qs = get_perms().filter_posts(user, qs)
     return qs[:cnt]
 
 
 def load_perms_filters():
+    perms = get_perms()
+
     def partial(func_name, perms_obj):
         def newfunc(user, obj):
             return getattr(perms_obj, func_name)(user, obj)

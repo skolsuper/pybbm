@@ -6,20 +6,20 @@ from django.contrib.contenttypes.models import ContentType
 from django.dispatch import Signal
 from django.db.models.signals import post_save, post_delete, pre_save
 
-from pybb import util, defaults, compat
+from pybb import util, settings as defaults, compat
 from pybb.models import Post, Category, Topic, Forum, create_or_check_slug
-from pybb.permissions import perms
+from pybb.permissions import get_perms
 from pybb.subscription import notify_topic_subscribers
 
 topic_updated = Signal(providing_args=['post', 'request'])
-
 
 def post_saved(instance, **kwargs):
     if kwargs['created']:
         profile = util.get_pybb_profile(instance.user)
         profile.post_count = instance.user.posts.count()
         profile.save()
-        if not defaults.PYBB_DISABLE_SUBSCRIPTIONS and util.get_pybb_profile(instance.user).autosubscribe and \
+        perms = get_perms()
+        if not defaults.settings.PYBB_DISABLE_SUBSCRIPTIONS and util.get_pybb_profile(instance.user).autosubscribe and \
                 perms.may_subscribe_topic(instance.user, instance.topic):
             instance.topic.subscribers.add(instance.user)
 
@@ -49,10 +49,10 @@ def user_saved(instance, created, **kwargs):
     instance.user_permissions.add(add_post_permission, add_topic_permission)
     instance.save()
 
-    if defaults.PYBB_PROFILE_RELATED_NAME:
+    if defaults.settings.PYBB_PROFILE_RELATED_NAME:
         ModelProfile = util.get_pybb_profile_model()
         profile = ModelProfile()
-        setattr(instance, defaults.PYBB_PROFILE_RELATED_NAME, profile)
+        setattr(instance, defaults.settings.PYBB_PROFILE_RELATED_NAME, profile)
         profile.save()
 
 
@@ -83,7 +83,7 @@ def setup():
     pre_save.connect(pre_save_topic_slug, sender=Topic)
     post_save.connect(post_saved, sender=Post)
     post_delete.connect(post_deleted, sender=Post)
-    if not defaults.PYBB_DISABLE_NOTIFICATIONS:
+    if not defaults.settings.PYBB_DISABLE_NOTIFICATIONS:
         topic_updated.connect(notify_topic_subscribers, sender=Post)
-    if defaults.PYBB_AUTO_USER_PERMISSIONS:
+    if defaults.settings.PYBB_AUTO_USER_PERMISSIONS:
         post_save.connect(user_saved, sender=compat.get_user_model())
