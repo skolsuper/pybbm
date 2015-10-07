@@ -7,9 +7,10 @@ from django.dispatch import Signal
 from django.db.models.signals import post_save, post_delete, pre_save
 
 from pybb import util, settings as defaults, compat
-from pybb.models import Post, Category, Topic, Forum, create_or_check_slug
+from pybb.models import Post, Category, Topic, Forum
 from pybb.permissions import get_perms
 from pybb.subscription import notify_topic_subscribers
+from pybb.util import create_or_check_slug
 
 topic_updated = Signal(providing_args=['post', 'request'])
 

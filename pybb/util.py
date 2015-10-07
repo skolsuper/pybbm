@@ -4,13 +4,13 @@ from __future__ import unicode_literals
 import os
 import warnings
 import uuid
+from django.core.exceptions import ValidationError
 
 from django.utils.importlib import import_module
 from django.utils.six import string_types
 from django.utils.translation import ugettext as _
-from pybb import compat
 
-from pybb.compat import get_username_field, get_user_model
+from pybb.compat import get_username_field, get_user_model, slugify, get_related_model_class
 from pybb.settings import settings
 from pybb.markup.base import BaseParser
 
@@ -151,7 +151,7 @@ def get_pybb_profile_model():
     from pybb import settings as defaults
 
     if defaults.settings.PYBB_PROFILE_RELATED_NAME:
-        return compat.get_related_model_class(get_user_model(), defaults.settings.PYBB_PROFILE_RELATED_NAME)
+        return get_related_model_class(get_user_model(), defaults.settings.PYBB_PROFILE_RELATED_NAME)
     else:
         return get_user_model()
 
@@ -185,3 +185,42 @@ class FilePathGenerator(object):
         ext = filename.split('.')[-1]
         filename = "%s.%s" % (uuid.uuid4(), ext)
         return os.path.join(self.to, filename)
+
+
+def create_or_check_slug(instance, model, **extra_filters):
+    """
+    returns a unique slug
+
+    :param instance : target instance
+    :param model: needed as instance._meta.model is available since django 1.6
+    :param extra_filters: filters needed for Forum and Topic for their unique_together field
+    """
+    initial_slug = instance.slug or slugify(instance.name)
+    count = -1
+    last_count_len = 0
+    slug_is_not_unique = True
+    while slug_is_not_unique:
+        count += 1
+
+        if count >= settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT:
+            msg = _('After %(limit)s attemps, there is not any unique slug value for "%(slug)s"')
+            raise ValidationError(msg % {'limit': settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT,
+                                         'slug': initial_slug})
+
+        count_len = len(str(count))
+
+        if last_count_len != count_len:
+            last_count_len = count_len
+            filters = {'slug__startswith': initial_slug[:(254-count_len)], }
+            if extra_filters:
+                filters.update(extra_filters)
+            objs = model.objects.filter(**filters).exclude(pk=instance.pk)
+            slug_list = [obj.slug for obj in objs]
+
+        if count == 0:
+            slug = initial_slug
+        else:
+            slug = '%s-%d' % (initial_slug[:(254-count_len)], count)
+        slug_is_not_unique = slug in slug_list
+
+    return slug
