@@ -44,7 +44,7 @@
                 {% endwith %}
             </td>
             <td class="topic-post-count">
-                {{ topic.post_count }}
+                {{ topic.posts.count }}
             </td>
             <td class="topic-view-count">
                 {{ topic|pybbm_calc_topic_views }}

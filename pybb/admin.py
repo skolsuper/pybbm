@@ -1,5 +1,6 @@
 # -*- coding: utf-8
 from __future__ import unicode_literals
+
 from django.utils.translation import ugettext_lazy as _
 from django.contrib import admin
 from django.core.urlresolvers import reverse
@@ -26,6 +27,9 @@ class CategoryAdmin(admin.ModelAdmin):
 
     inlines = [ForumInlineAdmin]
 
+    def forum_count(self, category):
+        return category.forums.count()
+
 
 class ForumAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
@@ -46,6 +50,9 @@ class ForumAdmin(admin.ModelAdmin):
                 }
             ),
         )
+
+    def topic_count(self, forum):
+        return forum.topics.count()
 
 
 class PollAnswerAdmin(admin.TabularInline):
@@ -74,6 +81,9 @@ class TopicAdmin(admin.ModelAdmin):
          ),
         )
     inlines = [PollAnswerAdmin, ]
+
+    def post_count(self, topic):
+        return topic.posts.count()
 
 class TopicReadTrackerAdmin(admin.ModelAdmin):
     list_display = ['topic', 'user', 'time_stamp']
@@ -123,6 +133,9 @@ class ProfileAdmin(admin.ModelAdmin):
                 }
          ),
         )
+
+    def post_count(self, profile):
+        return profile.user.posts.count()
 
 
 class AttachmentAdmin(admin.ModelAdmin):

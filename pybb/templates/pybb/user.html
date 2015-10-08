@@ -19,13 +19,13 @@
             <div>
                 <a href="{% url 'pybb:user_topics' target_user.get_username %}">
                     {% trans "Number of topics" %}:
-                    {{ topic_count }}
+                    {{ target_user.topics.count }}
                 </a>
             </div>
             <div>
                 <a href="{% url 'pybb:user_posts' target_user.get_username %}">
                     {% trans "Number of posts" %}:
-                    {{ target_profile.post_count }}
+                    {{ target_user.posts.count }}
                 </a>
             </div>
             <div>{% trans "Date of registration" %}: {% pybb_time target_user.date_joined %}</div>

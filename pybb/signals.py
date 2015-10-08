@@ -7,34 +7,19 @@ from django.dispatch import Signal
 from django.db.models.signals import post_save, post_delete, pre_save
 
 from pybb import util, settings as defaults, compat
-from pybb.models import Post, Category, Topic, Forum, create_or_check_slug
+from pybb.models import Post, Category, Topic, Forum
 from pybb.permissions import get_perms
 from pybb.subscription import notify_topic_subscribers
+from pybb.util import create_or_check_slug
 
 topic_updated = Signal(providing_args=['post', 'request'])
 
 def post_saved(instance, **kwargs):
     if kwargs['created']:
-        profile = util.get_pybb_profile(instance.user)
-        profile.post_count = instance.user.posts.count()
-        profile.save()
         perms = get_perms()
         if not defaults.settings.PYBB_DISABLE_SUBSCRIPTIONS and util.get_pybb_profile(instance.user).autosubscribe and \
                 perms.may_subscribe_topic(instance.user, instance.topic):
             instance.topic.subscribers.add(instance.user)
-
-
-def post_deleted(instance, **kwargs):
-    Profile = util.get_pybb_profile_model()
-    User = compat.get_user_model()
-    try:
-        profile = util.get_pybb_profile(instance.user)
-    except (Profile.DoesNotExist, User.DoesNotExist) as e:
-        #When we cascade delete an user, profile and posts are also deleted
-        pass
-    else:
-        profile.post_count = instance.user.posts.count()
-        profile.save()
 
 
 def user_saved(instance, created, **kwargs):
@@ -82,7 +67,6 @@ def setup():
     pre_save.connect(pre_save_forum_slug, sender=Forum)
     pre_save.connect(pre_save_topic_slug, sender=Topic)
     post_save.connect(post_saved, sender=Post)
-    post_delete.connect(post_deleted, sender=Post)
     if not defaults.settings.PYBB_DISABLE_NOTIFICATIONS:
         topic_updated.connect(notify_topic_subscribers, sender=Post)
     if defaults.settings.PYBB_AUTO_USER_PERMISSIONS:

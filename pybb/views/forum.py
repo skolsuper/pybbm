@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
-from django.db.models import F
+from django.db.models import F, Count
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import redirect, get_object_or_404
 from django.utils.decorators import method_decorator
@@ -239,14 +239,14 @@ class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbForm
 
     def get_topic(self, **kwargs):
         if 'pk' in kwargs:
-            topic = get_object_or_404(Topic, pk=kwargs['pk'], post_count__gt=0)
+            topic = get_object_or_404(Topic.objects.annotate(Count('posts')), pk=kwargs['pk'], posts__count__gt=0)
         elif ('slug'and 'forum_slug'and 'category_slug') in kwargs:
             topic = get_object_or_404(
-                Topic,
+                Topic.objects.annotate(Count('posts')),
                 slug=kwargs['slug'],
                 forum__slug=kwargs['forum_slug'],
                 forum__category__slug=kwargs['category_slug'],
-                post_count__gt=0
+                posts__count__gt=0
                 )
         else:
             raise Http404(_('This topic does not exists'))

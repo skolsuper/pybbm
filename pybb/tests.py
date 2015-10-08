@@ -170,11 +170,9 @@ class FeaturesTest(TestCase, SharedTestModule):
         client.login(username='ann', password='ann')
 
         self.assertEqual(client.get(topic.get_absolute_url()).status_code, 404)
-        self.assertEqual(topic.forum.post_count, 1)
-        self.assertEqual(topic.forum.topic_count, 1)
-        #do we need to correct this ?
-        #self.assertEqual(topic.forum.topics.count(), 1)
-        self.assertEqual(topic.post_count, 0)
+        self.assertEqual(self.forum.posts.count(), 1)
+        self.assertEqual(self.forum.topics.count(), 2)
+        self.assertEqual(topic.posts.count(), 0)
 
         #Now, TopicReadTracker is not created because the topic detail view raise a 404
         #If its creation is not finished. So we create it manually to add a test, just in case
@@ -191,10 +189,9 @@ class FeaturesTest(TestCase, SharedTestModule):
         Post(topic=topic, user=self.user, body='one').save()
 
         self.assertEqual(client.get(topic.get_absolute_url()).status_code, 200)
-        self.assertEqual(topic.forum.post_count, 2)
-        self.assertEqual(topic.forum.topic_count, 2)
+        self.assertEqual(topic.forum.posts.count(), 2)
         self.assertEqual(topic.forum.topics.count(), 2)
-        self.assertEqual(topic.post_count, 1)
+        self.assertEqual(topic.posts.count(), 1)
 
     def test_post_deletion(self):
         post = Post(topic=self.topic, user=self.user, body='bbcode [b]test[/b]')
@@ -1009,13 +1006,13 @@ class FeaturesTest(TestCase, SharedTestModule):
         topic_2.delete()
         forum_1 = Forum.objects.get(id=forum_1.id)
         self.assertAlmostEqual(forum_1.updated, post_1.created, delta=datetime.timedelta(milliseconds=50))
-        self.assertEqual(forum_1.topic_count, 1)
-        self.assertEqual(forum_1.post_count, 1)
+        self.assertEqual(forum_1.topics.count(), 1)
+        self.assertEqual(forum_1.posts.count(), 1)
 
         post_1.delete()
         forum_1 = Forum.objects.get(id=forum_1.id)
-        self.assertEqual(forum_1.topic_count, 0)
-        self.assertEqual(forum_1.post_count, 0)
+        self.assertEqual(forum_1.topics.count(), 0)
+        self.assertEqual(forum_1.posts.count(), 0)
 
     def test_user_views(self):
         response = self.client.get(reverse('pybb:user', kwargs={'username': self.user.username}))
@@ -1045,12 +1042,12 @@ class FeaturesTest(TestCase, SharedTestModule):
         topic.save()
         post = Post(topic=topic, user=self.user, body='test') # another post
         post.save()
-        self.assertEqual(util.get_pybb_profile(self.user).post_count, 2)
+        self.assertEqual(util.get_pybb_profile(self.user).user.posts.count(), 2)
         post.body = 'test2'
         post.save()
-        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(self.user).pk).post_count, 2)
+        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(self.user).pk).user.posts.count(), 2)
         post.delete()
-        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(self.user).pk).post_count, 1)
+        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(self.user).pk).user.posts.count(), 1)
 
     def test_latest_topics_tag(self):
         Topic.objects.all().delete()

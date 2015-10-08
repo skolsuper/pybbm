@@ -2,27 +2,28 @@
 
 from __future__ import unicode_literals
 
-from django.conf import settings
+from django.conf import settings as django_settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import reverse
 from django.core.validators import validate_email
 from django.template.loader import render_to_string
 from django.utils import translation
 
-from pybb import settings as defaults, util, compat
+from pybb import util, compat
+from pybb.settings import settings
 
-if defaults.settings.PYBB_USE_DJANGO_MAILER:
+if settings.PYBB_USE_DJANGO_MAILER:
     try:
         from mailer import send_mass_mail
     except ImportError as e:
         raise ImproperlyConfigured('settings.PYBB_USE_DJANGO_MAILER is {0} but mailer could not be imported.'
-                                   ' Original exception: {1}'.format(defaults.settings.PYBB_USE_DJANGO_MAILER, e.message))
+                                   ' Original exception: {1}'.format(settings.PYBB_USE_DJANGO_MAILER, e.message))
 else:
     from django.core.mail import send_mass_mail
 
 
 def notify_topic_subscribers(post, current_site, *args, **kwargs):
-    if defaults.settings.PYBB_DISABLE_NOTIFICATIONS:
+    if settings.PYBB_DISABLE_NOTIFICATIONS:
         return
     topic = post.topic
     if post != topic.head:
@@ -30,7 +31,7 @@ def notify_topic_subscribers(post, current_site, *args, **kwargs):
 
         # Define constants for templates rendering
         delete_url = reverse('pybb:delete_subscription', args=[post.topic.id])
-        from_email = settings.DEFAULT_FROM_EMAIL
+        from_email = django_settings.DEFAULT_FROM_EMAIL
 
         subject = render_to_string('pybb/mail_templates/subscription_email_subject.html',
                                    {'site': current_site,
@@ -49,7 +50,7 @@ def notify_topic_subscribers(post, current_site, *args, **kwargs):
             if user.email == '%s@example.com' % getattr(user, compat.get_username_field()):
                 continue
 
-            lang = util.get_pybb_profile(user).language or settings.LANGUAGE_CODE
+            lang = util.get_pybb_profile(user).language or django_settings.LANGUAGE_CODE
             translation.activate(lang)
 
             message = render_to_string('pybb/mail_templates/subscription_email_body.html',
