@@ -76,7 +76,8 @@ class Post(RenderableItem):
         if self.topic.head == self and not self.on_moderation and self.topic.on_moderation:
             self.topic.on_moderation = False
 
-        self.topic.update_counters()
+        self.topic.updated = self.updated or self.created
+        self.topic.save()
         self.topic.forum.update_counters()
 
         if topic_changed:

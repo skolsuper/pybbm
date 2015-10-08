@@ -43,7 +43,6 @@ class Topic(models.Model):
     closed = models.BooleanField(_('Closed'), blank=True, default=False)
     subscribers = models.ManyToManyField(get_user_model_path(), related_name='subscriptions',
                                          verbose_name=_('Subscribers'), blank=True)
-    post_count = models.IntegerField(_('Post count'), blank=True, default=0)
     readed_by = models.ManyToManyField(get_user_model_path(), through='TopicReadTracker', related_name='readed_topics')
     on_moderation = models.BooleanField(_('On moderation'), default=False)
     poll_type = models.IntegerField(_('Poll type'), choices=POLL_TYPE_CHOICES, default=POLL_TYPE_NONE)
@@ -95,7 +94,6 @@ class Topic(models.Model):
         self.forum.update_counters()
 
     def update_counters(self):
-        self.post_count = self.posts.count()
         # force cache overwrite to get the real latest updated post
         if hasattr(self, 'last_post'):
             del self.last_post

@@ -57,7 +57,7 @@ class Forum(models.Model):
 
     @property
     def posts(self):
-        return Post.objects.filter(topic__forum=self).select_related()
+        return Post.objects.filter(topic__forum=self)
 
     @cached_property
     def last_post(self):

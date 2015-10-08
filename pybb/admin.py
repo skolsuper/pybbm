@@ -81,6 +81,9 @@ class TopicAdmin(admin.ModelAdmin):
         )
     inlines = [PollAnswerAdmin, ]
 
+    def post_count(self, topic):
+        return topic.posts.count()
+
 class TopicReadTrackerAdmin(admin.ModelAdmin):
     list_display = ['topic', 'user', 'time_stamp']
     search_fields = ['user__%s' % username_field]
