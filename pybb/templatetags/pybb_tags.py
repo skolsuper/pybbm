@@ -8,13 +8,12 @@ import warnings
 
 from django import template
 from django.core.cache import cache
-from django.utils.safestring import mark_safe
+from django.utils import dateformat
 from django.utils.encoding import smart_text
 from django.utils.html import escape
+from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext as _
-from django.utils import dateformat
-from django.utils.timezone import timedelta
-from django.utils.timezone import now as tznow
+from django.utils.timezone import timedelta, now as tznow
 
 try:
     import pytils
@@ -22,9 +21,10 @@ try:
 except ImportError:
     pytils_enabled = False
 
+from pybb import util, compat
 from pybb.models import TopicReadTracker, ForumReadTracker, PollAnswerUser, Topic, Post
 from pybb.permissions import get_perms
-from pybb import settings as defaults, util, compat
+from pybb.settings import settings
 
 
 register = template.Library()
@@ -199,7 +199,7 @@ def pybb_forum_unread(forums, user):
 
 @register.filter
 def pybb_topic_inline_pagination(topic):
-    page_count = int(math.ceil(topic.post_count / float(defaults.settings.PYBB_TOPIC_PAGE_SIZE)))
+    page_count = int(math.ceil(topic.post_count / float(settings.PYBB_TOPIC_PAGE_SIZE)))
     if page_count <= 5:
         return range(1, page_count+1)
     return list(range(1, 5)) + ['...', page_count]
