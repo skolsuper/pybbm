@@ -1,5 +1,6 @@
 # -*- coding: utf-8
 from __future__ import unicode_literals
+
 from django.utils.translation import ugettext_lazy as _
 from django.contrib import admin
 from django.core.urlresolvers import reverse
@@ -132,6 +133,9 @@ class ProfileAdmin(admin.ModelAdmin):
                 }
          ),
         )
+
+    def post_count(self, profile):
+        return profile.user.posts.count()
 
 
 class AttachmentAdmin(admin.ModelAdmin):

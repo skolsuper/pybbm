@@ -31,7 +31,6 @@ class Command(BaseCommand):
             profile.language = pybb_profile.language
             profile.show_signatures = pybb_profile.show_signatures
             profile.markup = pybb_profile.markup
-            profile.post_count = pybb_profile.post_count
             profile.avatar = pybb_profile.avatar
             profile.save()
         self.stdout.write('All profiles successfuly migrated')

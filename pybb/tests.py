@@ -1042,12 +1042,12 @@ class FeaturesTest(TestCase, SharedTestModule):
         topic.save()
         post = Post(topic=topic, user=self.user, body='test') # another post
         post.save()
-        self.assertEqual(util.get_pybb_profile(self.user).post_count, 2)
+        self.assertEqual(util.get_pybb_profile(self.user).user.posts.count(), 2)
         post.body = 'test2'
         post.save()
-        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(self.user).pk).post_count, 2)
+        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(self.user).pk).user.posts.count(), 2)
         post.delete()
-        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(self.user).pk).post_count, 1)
+        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(self.user).pk).user.posts.count(), 1)
 
     def test_latest_topics_tag(self):
         Topic.objects.all().delete()

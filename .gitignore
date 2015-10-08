@@ -4,7 +4,7 @@ local_path.py
 settings_local.py
 dist
 *.egg-info
-testdb.sqlite
+*.sqlite
 test/example/media/pybb_upload
 docs/_build/
 env/
