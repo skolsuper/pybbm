@@ -76,9 +76,11 @@ class Post(RenderableItem):
         if self.topic.head == self and not self.on_moderation and self.topic.on_moderation:
             self.topic.on_moderation = False
 
-        self.topic.updated = self.updated or self.created
+        updated = self.updated or self.created
+        self.topic.updated = updated
         self.topic.save()
-        self.topic.forum.update_counters()
+        self.topic.forum.updated = updated
+        self.topic.forum.save()
 
         if topic_changed:
             old_post.topic.update_counters()
@@ -92,7 +94,9 @@ class Post(RenderableItem):
         head_post_id = self.topic.posts.order_by('created', 'id')[0].id
 
         if self_id == head_post_id:
+            forum = self.topic.forum
             self.topic.delete()
+            forum.update_counters()
         else:
             super(Post, self).delete(*args, **kwargs)
             self.topic.update_counters()
