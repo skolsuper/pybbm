@@ -225,7 +225,7 @@ def pybb_get_profile(*args, **kwargs):
 
 @register.assignment_tag(takes_context=True)
 def pybb_get_latest_topics(context, cnt=5, user=None):
-    qs = Topic.objects.all().order_by('-updated', '-created', '-id')
+    qs = Topic.objects.all().order_by('-posts__updated', '-created', '-id')
     if not user:
         user = context['user']
     qs = get_perms().filter_topics(user, qs)

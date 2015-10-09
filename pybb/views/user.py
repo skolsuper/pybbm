@@ -66,7 +66,7 @@ class UserTopics(PermissionsMixin, PaginatorMixin, generic.ListView):
         qs = super(UserTopics, self).get_queryset()
         qs = qs.filter(user=self.user)
         qs = self.perms.filter_topics(self.user, qs)
-        qs = qs.order_by('-updated', '-created', '-id')
+        qs = qs.order_by('-posts__updated', '-created', '-id')
         return qs
 
     def get_context_data(self, **kwargs):

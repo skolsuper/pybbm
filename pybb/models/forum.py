@@ -29,7 +29,6 @@ class Forum(models.Model):
     position = models.IntegerField(_('Position'), blank=True, default=0)
     description = models.TextField(_('Description'), blank=True)
     moderators = models.ManyToManyField(get_user_model_path(), blank=True, null=True, verbose_name=_('Moderators'))
-    updated = models.DateTimeField(_('Updated'), blank=True, null=True)
     hidden = models.BooleanField(_('Hidden'), blank=False, null=False, default=False)
     readed_by = models.ManyToManyField(get_user_model_path(), through='ForumReadTracker', related_name='readed_forums')
     headline = models.TextField(_('Headline'), blank=True, null=True)
@@ -39,10 +38,12 @@ class Forum(models.Model):
     def __str__(self):
         return self.name
 
-    def update_counters(self):
-        if self.last_post is not None:
-            self.updated = self.last_post.updated or self.last_post.created
-            self.save()
+    @property
+    def updated(self):
+        try:
+            return self.posts.order_by('-updated')[0].updated
+        except IndexError:
+            return None
 
     def get_absolute_url(self):
         if settings.PYBB_NICE_URL:

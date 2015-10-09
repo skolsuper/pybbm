@@ -45,7 +45,7 @@ class Post(RenderableItem):
     topic = models.ForeignKey(Topic, related_name='posts', verbose_name=_('Topic'))
     user = models.ForeignKey(get_user_model_path(), related_name='posts', verbose_name=_('User'))
     created = models.DateTimeField(_('Created'), blank=True, db_index=True, auto_now_add=True)
-    updated = models.DateTimeField(_('Updated'), blank=True, null=True)
+    updated = models.DateTimeField(_('Updated'), blank=True, default=tznow)
     user_ip = models.IPAddressField(_('User IP'), blank=True, default='0.0.0.0')
     on_moderation = models.BooleanField(_('On moderation'), default=False)
 
@@ -59,32 +59,12 @@ class Post(RenderableItem):
 
     def save(self, *args, **kwargs):
         self.render()
-
-        new = self.pk is None
-
-        topic_changed = False
-        old_post = None
-        if not new:
-            self.updated = tznow()
-            old_post = Post.objects.get(pk=self.pk)
-            if old_post.topic != self.topic:
-                topic_changed = True
-
         super(Post, self).save(*args, **kwargs)
 
         # If post is topic head and moderated, moderate topic too
         if self.topic.head == self and not self.on_moderation and self.topic.on_moderation:
             self.topic.on_moderation = False
-
-        updated = self.updated or self.created
-        self.topic.updated = updated
-        self.topic.save()
-        self.topic.forum.updated = updated
-        self.topic.forum.save()
-
-        if topic_changed:
-            old_post.topic.update_counters()
-            old_post.topic.forum.update_counters()
+            self.topic.save()
 
     def get_absolute_url(self):
         return reverse('pybb:post', kwargs={'pk': self.id})
@@ -94,13 +74,9 @@ class Post(RenderableItem):
         head_post_id = self.topic.posts.order_by('created', 'id')[0].id
 
         if self_id == head_post_id:
-            forum = self.topic.forum
             self.topic.delete()
-            forum.update_counters()
         else:
             super(Post, self).delete(*args, **kwargs)
-            self.topic.update_counters()
-            self.topic.forum.update_counters()
 
     def get_parents(self):
         """

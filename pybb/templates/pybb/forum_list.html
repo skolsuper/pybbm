@@ -35,7 +35,7 @@
                     {{ forum.posts.count }}
                 </td>
                 <td class="forum-last-post">
-                    {% include "pybb/forum_last_update_info.html" %}
+                    {{ forum.updated|date:"d.m.Y H:i" }}
                 </td>
             </tr>
         {% empty %}

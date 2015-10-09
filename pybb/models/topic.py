@@ -36,7 +36,6 @@ class Topic(models.Model):
     forum = models.ForeignKey('Forum', related_name='topics', verbose_name=_('Forum'))
     name = models.CharField(_('Subject'), max_length=255)
     created = models.DateTimeField(_('Created'), auto_now_add=True)
-    updated = models.DateTimeField(_('Updated'), null=True)
     user = models.ForeignKey(get_user_model_path(), related_name='topics', verbose_name=_('User'))
     views = models.IntegerField(_('Views count'), blank=True, default=0)
     sticky = models.BooleanField(_('Sticky'), blank=True, default=False)
@@ -52,6 +51,13 @@ class Topic(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def updated(self):
+        try:
+            return self.posts.order_by('updated').reverse()[0].updated
+        except IndexError:
+            return None
 
     @cached_property
     def head(self):
@@ -71,37 +77,6 @@ class Topic(models.Model):
         if settings.PYBB_NICE_URL:
             return reverse('pybb:topic', kwargs={'slug': self.slug, 'forum_slug': self.forum.slug, 'category_slug': self.forum.category.slug})
         return reverse('pybb:topic', kwargs={'pk': self.id})
-
-    def save(self, *args, **kwargs):
-        if self.id is None:
-            self.updated = tznow()
-
-        forum_changed = False
-        old_topic = None
-        if self.id is not None:
-            old_topic = Topic.objects.get(id=self.id)
-            if self.forum != old_topic.forum:
-                forum_changed = True
-
-        super(Topic, self).save(*args, **kwargs)
-
-        if forum_changed:
-            old_topic.forum.update_counters()
-            self.forum.update_counters()
-
-    def delete(self, using=None):
-        super(Topic, self).delete(using)
-        self.forum.update_counters()
-
-    def update_counters(self):
-        # force cache overwrite to get the real latest updated post
-        if hasattr(self, 'last_post'):
-            del self.last_post
-        if self.last_post:
-            self.updated = self.last_post.updated or self.last_post.created
-        else:
-            self.updated = self.created
-        self.save()
 
     def get_parents(self):
         """

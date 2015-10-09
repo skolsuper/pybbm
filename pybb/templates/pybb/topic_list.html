@@ -50,7 +50,7 @@
                 {{ topic|pybbm_calc_topic_views }}
             </td>
             <td class="topic-last-post">
-                {% include "pybb/topic_last_message_info.html" %}
+                {{ topic.updated|date:"d.m.Y H:i" }}
             </td>
         </tr>
     {% endfor %}

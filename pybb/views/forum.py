@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
-from django.db.models import F, Count
+from django.db.models import F, Count, Max
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import redirect, get_object_or_404
 from django.utils.decorators import method_decorator
@@ -91,7 +91,7 @@ class ForumView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, generic.
         if not self.perms.may_view_forum(self.request.user, self.forum):
             raise PermissionDenied
 
-        qs = self.forum.topics.order_by('-sticky', '-updated', '-id').select_related()
+        qs = self.forum.topics.annotate(last_update=Max('posts__updated')).order_by('-sticky', '-last_update', '-id')
         qs = self.perms.filter_topics(self.request.user, qs)
         return qs
 
@@ -119,7 +119,7 @@ class LatestTopicsView(PermissionsMixin, PaginatorMixin, generic.ListView):
     def get_queryset(self):
         qs = Topic.objects.all().select_related()
         qs = self.perms.filter_topics(self.request.user, qs)
-        return qs.order_by('-updated', '-id')
+        return qs.order_by('-posts__updated', '-id')
 
 
 class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.ListView):
@@ -224,11 +224,13 @@ class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbForm
                 return
 
             # Check, if there are any unread topics in forum
-            readed_trackers = TopicReadTracker.objects.filter(
-                user=self.request.user, topic__forum=self.topic.forum, time_stamp__gte=F('topic__updated'))
+            readed_trackers = TopicReadTracker.objects\
+                .annotate(last_update=Max('topic__posts__updated'))\
+                .filter(user=self.request.user, topic__forum=self.topic.forum, time_stamp__gte=F('last_update'))
             unread = self.topic.forum.topics.exclude(topicreadtracker__in=readed_trackers)
             if forum_mark is not None:
-                unread = unread.filter(updated__gte=forum_mark.time_stamp)
+                unread = unread.annotate(
+                    last_update=Max('posts__updated')).filter(last_update__gte=forum_mark.time_stamp)
 
             if not unread.exists():
                 # Clear all topic marks for this forum, mark forum as read

@@ -132,7 +132,6 @@ class PostForm(forms.ModelForm):
                 if self.may_create_poll:
                     post.topic.poll_type = self.cleaned_data['poll_type']
                     post.topic.poll_question = self.cleaned_data['poll_question']
-                post.topic.updated = tznow()
                 if commit:
                     post.topic.save()
             post.updated = tznow()

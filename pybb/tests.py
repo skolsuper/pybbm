@@ -154,45 +154,6 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(Topic.objects.filter(name='new topic name').exists())
 
-    def test_topic_read_before_post_addition(self):
-        """
-        Test if everything is okay when :
-            - user A create the topic
-            - but before associated post is created, user B display the forum
-        """
-        topic = Topic(name='xtopic', forum=self.forum, user=self.user)
-        topic.save()
-        #topic is saved, but post is not yet created at this time
-
-        #an other user is displaing the forum before the post creation
-        user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
-        client = Client()
-        client.login(username='ann', password='ann')
-
-        self.assertEqual(client.get(topic.get_absolute_url()).status_code, 404)
-        self.assertEqual(self.forum.posts.count(), 1)
-        self.assertEqual(self.forum.topics.count(), 2)
-        self.assertEqual(topic.posts.count(), 0)
-
-        #Now, TopicReadTracker is not created because the topic detail view raise a 404
-        #If its creation is not finished. So we create it manually to add a test, just in case
-        #we have an other way where TopicReadTracker could be set for a not complete topic.
-        TopicReadTracker.objects.create(user=user_ann, topic=topic, time_stamp=topic.created)
-
-        #before correction, raised TypeError: can't compare datetime.datetime to NoneType
-        pybb_topic_unread([topic,], user_ann)
-
-        #before correction, raised IndexError: list index out of range
-        last_post = topic.last_post
-
-        #post creation now.
-        Post(topic=topic, user=self.user, body='one').save()
-
-        self.assertEqual(client.get(topic.get_absolute_url()).status_code, 200)
-        self.assertEqual(topic.forum.posts.count(), 2)
-        self.assertEqual(topic.forum.topics.count(), 2)
-        self.assertEqual(topic.posts.count(), 1)
-
     def test_post_deletion(self):
         post = Post(topic=self.topic, user=self.user, body='bbcode [b]test[/b]')
         post.save()
@@ -219,7 +180,7 @@ class FeaturesTest(TestCase, SharedTestModule):
         post = Post(topic=topic, user=self.user, body='one')
         post.save()
         post = Post.objects.get(id=post.id)
-        self.assertTrue(self.forum.updated == post.created)
+        self.assertAlmostEqual(self.forum.updated, post.created, delta=datetime.timedelta(milliseconds=50))
 
     @skipUnlessDBFeature('supports_microsecond_precision')
     def test_read_tracking(self):
@@ -328,7 +289,7 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.assertEqual(TopicReadTracker.objects.all().count(), 2)
         self.assertEqual(TopicReadTracker.objects.filter(user=user_ann).count(), 2)
         self.assertEqual(ForumReadTracker.objects.all().count(), 1)
-        topic_3 = Topic.objects.order_by('-updated', '-id')[0]
+        topic_3 = Topic.objects.order_by('-posts__updated', '-id')[0]
         self.assertEqual(topic_3.name, 'topic_3')
 
         # user_ann posts to topic_1, a topic they've already read, no new trackers should be created
@@ -612,7 +573,7 @@ class FeaturesTest(TestCase, SharedTestModule):
         topic_2 = Topic.objects.create(name='topic_2', forum=self.forum, user=self.user)
 
         topic_1 = self.topic
-        topic_1.updated = timezone.now() + datetime.timedelta(seconds=1)
+        topic_1.body = 'Something a little different'
         topic_1.save()
 
         self.login_client()
@@ -808,7 +769,6 @@ class FeaturesTest(TestCase, SharedTestModule):
         edit_post_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})
         response = self.client.get(edit_post_url)
         self.assertEqual(response.status_code, 200)
-        self.assertIsNone(Post.objects.get(id=self.post.id).updated)
         tree = html.fromstring(response.content)
         values = dict(tree.xpath('//form[@method="post"]')[0].form_values())
         values['body'] = 'test edit'
