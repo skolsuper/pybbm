@@ -574,8 +574,9 @@ class FeaturesTest(TestCase, SharedTestModule):
         topic_2 = Topic.objects.create(name='topic_2', forum=self.forum, user=self.user)
 
         topic_1 = self.topic
-        topic_1.body = 'Something a little different'
-        topic_1.save()
+        post = topic_1.posts.all()[0]
+        post.body = 'Something completely different'
+        post.save()
 
         self.login_client()
         response = self.client.get(reverse('pybb:topic_latest'))
