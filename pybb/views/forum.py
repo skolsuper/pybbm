@@ -117,9 +117,9 @@ class LatestTopicsView(PermissionsMixin, PaginatorMixin, generic.ListView):
     template_name = 'pybb/latest_topics.html'
 
     def get_queryset(self):
-        qs = Topic.objects.all().select_related()
+        qs = Topic.objects.annotate(last_update=Max('posts__updated'))
         qs = self.perms.filter_topics(self.request.user, qs)
-        return qs.order_by('-posts__updated', '-id')
+        return qs.order_by('-last_update', '-id')
 
 
 class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.ListView):
