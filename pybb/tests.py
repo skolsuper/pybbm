@@ -564,6 +564,7 @@ class FeaturesTest(TestCase, SharedTestModule):
         response = client_ann.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
         self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_1.get_absolute_url(), 1, post_1_3.id))
 
+    @skipUnlessDBFeature('supports_microsecond_precision')
     def test_latest_topics(self):
 
         category_2 = Category.objects.create(name='cat2')
