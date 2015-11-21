@@ -56,6 +56,8 @@ class AddPostView(PostEditMixin, generic.CreateView):
                     raise Http404
                 else:
                     post = get_object_or_404(Post, pk=quote_id)
+                    if not self.perms.may_view_post(request.user, post):
+                        raise PermissionDenied
                     profile = util.get_pybb_profile(post.user)
                     self.quote = util._get_markup_quoter(defaults.settings.PYBB_MARKUP)(post.body, profile.get_display_name())
 
