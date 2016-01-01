@@ -12,12 +12,13 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext as _
 from django.views import generic
 from django.views.decorators.csrf import csrf_protect
+from rest_framework.generics import RetrieveAPIView
 
 from pybb import settings as defaults, util
 from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTracker
-from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
-from pybb.views.mixins import RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin
 from pybb.permissions import PermissionsMixin
+from pybb.serializers.topic import TopicSerializer
+from pybb.views.mixins import RedirectToLoginMixin, PaginatorMixin
 
 
 class IndexView(PermissionsMixin, generic.ListView):
@@ -122,10 +123,9 @@ class LatestTopicsView(PermissionsMixin, PaginatorMixin, generic.ListView):
         return qs.order_by('-last_update', '-id')
 
 
-class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbFormsMixin, generic.ListView):
+class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
     paginate_by = defaults.settings.PYBB_TOPIC_PAGE_SIZE
-    template_object_name = 'post_list'
-    template_name = 'pybb/topic.html'
+    serializer_class = TopicSerializer
 
     def get(self, request, *args, **kwargs):
         if defaults.settings.PYBB_NICE_URL and 'pk' in kwargs:
@@ -140,35 +140,8 @@ class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbForm
 
     @method_decorator(csrf_protect)
     def dispatch(self, request, *args, **kwargs):
-        self.topic = self.get_topic(**kwargs)
+        self.topic = self.get_object(**kwargs)
 
-        if request.GET.get('first-unread'):
-            if request.user.is_authenticated():
-                read_dates = []
-                try:
-                    read_dates.append(TopicReadTracker.objects.get(user=request.user, topic=self.topic).time_stamp)
-                except TopicReadTracker.DoesNotExist:
-                    pass
-                try:
-                    read_dates.append(ForumReadTracker.objects.get(user=request.user, forum=self.topic.forum).time_stamp)
-                except ForumReadTracker.DoesNotExist:
-                    pass
-
-                read_date = read_dates and max(read_dates)
-                if read_date:
-                    try:
-                        first_unread_topic = self.topic.posts.filter(created__gt=read_date).order_by('created', 'id')[0]
-                    except IndexError:
-                        first_unread_topic = self.topic.last_post
-                else:
-                    first_unread_topic = self.topic.head
-                return HttpResponseRedirect(reverse('pybb:post', kwargs={'pk': first_unread_topic.id}))
-
-        return super(TopicView, self).dispatch(request, *args, **kwargs)
-
-    def get_queryset(self):
-        if not self.perms.may_view_topic(self.request.user, self.topic):
-            raise PermissionDenied
         if self.request.user.is_authenticated() or not defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER:
             Topic.objects.filter(id=self.topic.id).update(views=F('views') + 1)
         else:
@@ -178,39 +151,48 @@ class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbForm
                 Topic.objects.filter(id=self.topic.id).update(views=F('views') +
                                                                 defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
                 cache.set(cache_key, 0)
-        qs = self.topic.posts.all().select_related('user')
-        if defaults.settings.PYBB_PROFILE_RELATED_NAME:
-            qs = qs.select_related('user__%s' % defaults.settings.PYBB_PROFILE_RELATED_NAME)
-        if not self.perms.may_moderate_topic(self.request.user, self.topic):
-            qs = self.perms.filter_posts(self.request.user, qs)
-        return qs
 
-    def get_context_data(self, **kwargs):
-        ctx = super(TopicView, self).get_context_data(**kwargs)
+        if request.GET.get('first-unread') and request.user.is_authenticated():
+            read_dates = []
+            try:
+                read_dates.append(TopicReadTracker.objects.get(user=request.user, topic=self.topic).time_stamp)
+            except TopicReadTracker.DoesNotExist:
+                pass
+            try:
+                read_dates.append(ForumReadTracker.objects.get(user=request.user, forum=self.topic.forum).time_stamp)
+            except ForumReadTracker.DoesNotExist:
+                pass
 
-        if self.request.user.is_authenticated():
-            self.request.user.is_moderator = self.perms.may_moderate_topic(self.request.user, self.topic)
-            self.request.user.is_subscribed = self.request.user in self.topic.subscribers.all()
-            ctx['form'] = self.get_post_form_class()(topic=self.topic)
-        elif defaults.settings.PYBB_ENABLE_ANONYMOUS_POST:
-            ctx['form'] = self.get_post_form_class()(topic=self.topic)
+            read_date = read_dates and max(read_dates)
+            if read_date:
+                try:
+                    first_unread_topic = self.topic.posts.filter(created__gt=read_date).order_by('created', 'id')[0]
+                except IndexError:
+                    first_unread_topic = self.topic.last_post
+            else:
+                first_unread_topic = self.topic.head
+            return HttpResponseRedirect(reverse('pybb:post', kwargs={'pk': first_unread_topic.id}))
+
+        return super(TopicView, self).dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        qs = super(TopicView, self).get_queryset()
+        return self.perms.filter_topics(self.request.user, qs)
+
+    def get_object(self, **kwargs):
+        if 'pk' in kwargs:
+            topic = get_object_or_404(Topic.objects.annotate(Count('posts')), pk=kwargs['pk'], posts__count__gt=0)
+        elif ('slug'and 'forum_slug'and 'category_slug') in kwargs:
+            topic = get_object_or_404(
+                Topic.objects.annotate(Count('posts')),
+                slug=kwargs['slug'],
+                forum__slug=kwargs['forum_slug'],
+                forum__category__slug=kwargs['category_slug'],
+                posts__count__gt=0
+                )
         else:
-            ctx['form'] = None
-            ctx['next'] = self.get_login_redirect_url()
-        if self.perms.may_attach_files(self.request.user):
-            aformset = self.get_attachment_formset_class()()
-            ctx['aformset'] = aformset
-        if defaults.settings.PYBB_FREEZE_FIRST_POST:
-            ctx['first_post'] = self.topic.head
-        else:
-            ctx['first_post'] = None
-        ctx['topic'] = self.topic
-
-        if self.perms.may_vote_in_topic(self.request.user, self.topic) and \
-                pybb_topic_poll_not_voted(self.topic, self.request.user):
-            ctx['poll_form'] = self.get_poll_form_class()(self.topic)
-
-        return ctx
+            raise Http404(_('This topic does not exists'))
+        return topic
 
     def mark_read(self):
         try:
@@ -238,18 +220,3 @@ class TopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, PybbForm
                 forum_mark, new = ForumReadTracker.objects.get_or_create_tracker(
                     forum=self.topic.forum, user=self.request.user)
                 forum_mark.save()
-
-    def get_topic(self, **kwargs):
-        if 'pk' in kwargs:
-            topic = get_object_or_404(Topic.objects.annotate(Count('posts')), pk=kwargs['pk'], posts__count__gt=0)
-        elif ('slug'and 'forum_slug'and 'category_slug') in kwargs:
-            topic = get_object_or_404(
-                Topic.objects.annotate(Count('posts')),
-                slug=kwargs['slug'],
-                forum__slug=kwargs['forum_slug'],
-                forum__category__slug=kwargs['category_slug'],
-                posts__count__gt=0
-                )
-        else:
-            raise Http404(_('This topic does not exists'))
-        return topic
