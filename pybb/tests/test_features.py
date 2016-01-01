@@ -22,18 +22,29 @@ User = get_user_model()
 
 class FeaturesTest(TestCase, SharedTestModule):
 
-    def setUp(self):
-        self.ORIG_PYBB_ENABLE_ANONYMOUS_POST = pybb_settings.PYBB_ENABLE_ANONYMOUS_POST
-        self.ORIG_PYBB_PREMODERATION = pybb_settings.PYBB_PREMODERATION
+    @classmethod
+    def setUpClass(cls):
+        super(FeaturesTest, cls).setUpClass()
+        cls.ORIG_PYBB_ENABLE_ANONYMOUS_POST = pybb_settings.PYBB_ENABLE_ANONYMOUS_POST
+        cls.ORIG_PYBB_PREMODERATION = pybb_settings.PYBB_PREMODERATION
         pybb_settings.PYBB_PREMODERATION = False
         pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = False
-        self.create_user()
-        self.create_initial()
-        mail.outbox = []
+        cls.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        cls.category = Category.objects.create(name='foo')
+        cls.forum = Forum.objects.create(name='xfoo', description='bar', category=cls.category)
+        cls.topic = Topic.objects.create(name='etopic', forum=cls.forum, user=cls.user)
+        cls.post = Post.objects.create(topic=cls.topic, user=cls.user, body='bbcode [b]test[/b]')
 
-    def tearDown(self):
-        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = self.ORIG_PYBB_ENABLE_ANONYMOUS_POST
-        pybb_settings.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
+    @classmethod
+    def tearDownClass(cls):
+        cls.user.delete()
+        cls.category.delete()
+        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = cls.ORIG_PYBB_ENABLE_ANONYMOUS_POST
+        pybb_settings.PYBB_PREMODERATION = cls.ORIG_PYBB_PREMODERATION
+        super(FeaturesTest, cls).tearDownClass()
+
+    def setUp(self):
+        mail.outbox = []
 
     def test_base(self):
         # Check index page
