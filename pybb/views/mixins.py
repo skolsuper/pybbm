@@ -2,6 +2,7 @@
 
 from __future__ import unicode_literals
 
+from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.forms.util import ErrorList
 from django.http import HttpResponseForbidden, HttpResponseRedirect
@@ -138,7 +139,7 @@ class PostEditMixin(PermissionsMixin, PybbFormsMixin):
                 self.object.save()
 
                 if created or defaults.settings.PYBB_NOTIFY_ON_EDIT:
-                    topic_updated.send(Post, post=self.object, current_site=compat.get_current_site(self.request))
+                    topic_updated.send(Post, post=self.object, current_site=get_current_site(self.request))
                 if save_attachments:
                     aformset.save()
                 if save_poll_answers:
