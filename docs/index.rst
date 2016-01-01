@@ -39,9 +39,6 @@ Contents:
    javascript
    testing
    updates
-   pybbmigrate
-   originalpybb
-   problems
 
 Indices and tables
 ==================
