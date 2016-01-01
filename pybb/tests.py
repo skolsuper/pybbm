@@ -138,10 +138,8 @@ class FeaturesTest(TestCase, SharedTestModule):
 
     def test_bbcode_and_topic_title(self):
         response = self.client.get(self.topic.get_absolute_url())
-        tree = html.fromstring(response.content)
-        self.assertTrue(self.topic.name in tree.xpath('//title')[0].text_content())
-        self.assertContains(response, self.post.body_html)
-        self.assertContains(response, 'bbcode <strong>test</strong>')
+        self.assertTrue('name' in response.data)
+        self.assertEqual(response.data['posts'][0]['body'], self.post.body)
 
     def test_topic_addition(self):
         self.login_client()
@@ -703,20 +701,6 @@ class FeaturesTest(TestCase, SharedTestModule):
 
     def get_csrf(self, form):
         return form.xpath('//input[@name="csrfmiddlewaretoken"]/@value')[0]
-
-    def test_csrf(self):
-        client = Client(enforce_csrf_checks=True)
-        client.login(username='zeus', password='zeus')
-        post_url = reverse('pybb:add_post', kwargs={'topic_id': self.topic.id})
-        response = client.get(post_url)
-        values = self.get_form_values(response)
-        del values['csrfmiddlewaretoken']
-        response = client.post(post_url, values, follow=True)
-        self.assertNotEqual(response.status_code, 200)
-        response = client.get(self.topic.get_absolute_url())
-        values = self.get_form_values(response)
-        response = client.post(reverse('pybb:add_post', kwargs={'topic_id': self.topic.id}), values, follow=True)
-        self.assertEqual(response.status_code, 200)
 
     def test_user_blocking(self):
         user = User.objects.create_user('test', 'test@localhost', 'test')
