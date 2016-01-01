@@ -33,7 +33,6 @@ def user_saved(instance, created, **kwargs):
     except (Permission.DoesNotExist, ContentType.DoesNotExist):
         return
     instance.user_permissions.add(add_post_permission, add_topic_permission)
-    instance.save()
 
     if defaults.settings.PYBB_PROFILE_RELATED_NAME:
         ModelProfile = util.get_pybb_profile_model()

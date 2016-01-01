@@ -56,7 +56,7 @@ class CustomPermissionHandlerTest(TestCase, SharedTestModule):
     def test_topic_permission(self):
         for t in Topic.objects.all():
             r = self.get_with_user(t.get_absolute_url())
-            self.assertEqual(r.status_code, 302 if t.forum.hidden or t.forum.category.hidden else 200)
+            self.assertEqual(r.status_code, 404 if t.forum.hidden or t.forum.category.hidden else 200)
             r = self.get_with_user(t.get_absolute_url(), 'zeus', 'zeus')
             self.assertEqual(r.status_code, 200)
 

@@ -23,7 +23,6 @@ class NiceUrlsTest(TestCase, SharedTestModule):
     @classmethod
     def setUpClass(cls):
         super(NiceUrlsTest, cls).setUpClass()
-        cls.urls = settings.ROOT_URLCONF
         cls.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
         cls.category = Category.objects.create(name='foo')
         cls.forum = Forum.objects.create(name='xfoo', description='bar', category=cls.category)

@@ -1,78 +1,87 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
 from django.core.urlresolvers import reverse
-from django.test import TestCase, override_settings
+from django.http import Http404
+from django.test import TestCase, override_settings, RequestFactory
 
 from pybb import util
 from pybb.models import Category, Forum, Topic, Post
 from pybb.settings import settings as pybb_settings
 from pybb.tests.utils import SharedTestModule
+from pybb.views import CategoryView, ForumView, TopicView
 
 User = get_user_model()
 Profile = util.get_pybb_profile_model()
 
 
-class LogonRedirectTest(TestCase, SharedTestModule):
+class HiddenCategoryTest(TestCase, SharedTestModule):
     """ test whether anonymous user gets redirected, whereas unauthorized user gets PermissionDenied """
 
     @classmethod
     def setUpClass(cls):
-        super(LogonRedirectTest, cls).setUpClass()
+        super(HiddenCategoryTest, cls).setUpClass()
         # create users
-        staff = User.objects.create_user('staff', 'staff@localhost', 'staff')
-        staff.is_staff = True
-        staff.save()
-        nostaff = User.objects.create_user('nostaff', 'nostaff@localhost', 'nostaff')
-        nostaff.is_staff = False
-        nostaff.save()
+        cls.staff = User.objects.create_user('staff', 'staff@localhost', 'staff', is_staff=True)
+        cls.no_staff = User.objects.create_user('nostaff', 'nostaff@localhost', 'nostaff', is_staff=False)
 
         # create topic, post in hidden category
         cls.category = Category(name='private', hidden=True)
         cls.category.save()
-        cls.forum = Forum(name='priv1', category=cls.category)
-        cls.forum.save()
-        cls.topic = Topic(name='a topic', forum=cls.forum, user=staff)
-        cls.topic.save()
-        cls.post = Post(body='body post', topic=cls.topic, user=staff, on_moderation=True)
-        cls.post.save()
+        cls.forum = Forum.objects.create(name='priv1', category=cls.category)
+        cls.topic = Topic.objects.create(name='a topic', forum=cls.forum, user=cls.staff)
+        cls.post = Post.objects.create(body='body post', topic=cls.topic, user=cls.staff, on_moderation=True)
+
+        cls.factory = RequestFactory()
 
     @classmethod
     def tearDownClass(cls):
-        User.objects.filter(username__contains='staff').delete()
+        cls.staff.delete()
+        cls.no_staff.delete()
         cls.category.delete()
-        super(LogonRedirectTest, cls).tearDownClass()
+        super(HiddenCategoryTest, cls).tearDownClass()
 
     def test_redirect_category(self):
-        # access without user should be redirected
-        r = self.get_with_user(self.category.get_absolute_url())
-        self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % self.category.get_absolute_url())
-        # access with (unauthorized) user should get 403 (forbidden)
-        r = self.get_with_user(self.category.get_absolute_url(), 'nostaff', 'nostaff')
-        self.assertEquals(r.status_code, 403)
+        # access without user should get 404
+        category_view_func = CategoryView.as_view()
+        request = self.factory.get(self.category.get_absolute_url())
+        request.user = AnonymousUser()
+        self.assertRaises(Http404, category_view_func, request, pk=self.category.pk)
+        # access with (unauthorized) user should get 404
+        request.user = self.no_staff
+        r = category_view_func(request, pk=self.category.pk)
+        self.assertRaises(Http404, category_view_func, request, pk=self.category.pk)
         # allowed user is allowed
-        r = self.get_with_user(self.category.get_absolute_url(), 'staff', 'staff')
+        request.user = self.staff
+        r = category_view_func(request, pk=self.category.pk)
         self.assertEquals(r.status_code, 200)
 
     def test_redirect_forum(self):
-        # access without user should be redirected
-        r = self.get_with_user(self.forum.get_absolute_url())
-        self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % self.forum.get_absolute_url())
-        # access with (unauthorized) user should get 403 (forbidden)
-        r = self.get_with_user(self.forum.get_absolute_url(), 'nostaff', 'nostaff')
-        self.assertEquals(r.status_code, 403)
+        # access without user should get 404
+        forum_view_func = ForumView.as_view()
+        request = self.factory.get(self.forum.get_absolute_url())
+        request.user = AnonymousUser()
+        self.assertRaises(Http404, forum_view_func, request, pk=self.forum.pk)
+        # access with (unauthorized) user should get 404
+        request.user = self.no_staff
+        self.assertRaises(Http404, forum_view_func, request, pk=self.forum.pk)
         # allowed user is allowed
-        r = self.get_with_user(self.forum.get_absolute_url(), 'staff', 'staff')
+        request.user = self.staff
+        r = forum_view_func(request, pk=self.forum.pk)
         self.assertEquals(r.status_code, 200)
 
     def test_redirect_topic(self):
+        topic_view_func = TopicView.as_view()
+        request = self.factory.get(self.topic.get_absolute_url())
         # access without user should be redirected
-        r = self.get_with_user(self.topic.get_absolute_url())
-        self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % self.topic.get_absolute_url())
+        request.user = AnonymousUser()
+        self.assertRaises(Http404, topic_view_func, request, pk=self.topic.pk)
         # access with (unauthorized) user should get 403 (forbidden)
-        r = self.get_with_user(self.topic.get_absolute_url(), 'nostaff', 'nostaff')
-        self.assertEquals(r.status_code, 403)
+        request.user = self.no_staff
+        self.assertRaises(Http404, topic_view_func, request, pk=self.topic.pk)
         # allowed user is allowed
-        r = self.get_with_user(self.topic.get_absolute_url(), 'staff', 'staff')
+        request.user = self.staff
+        r = topic_view_func(request, pk=self.topic.id)
         self.assertEquals(r.status_code, 200)
 
     def test_redirect_post(self):

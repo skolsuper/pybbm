@@ -541,14 +541,12 @@ class FeaturesTest(TestCase, SharedTestModule):
 
         category_2 = Category.objects.create(name='cat2')
         forum_2 = Forum.objects.create(name='forum_2', category=category_2)
+        topic_1 = Topic.objects.create(name='topic_1', forum=self.forum, user=self.user)
         topic_3 = Topic.objects.create(name='topic_3', forum=forum_2, user=self.user)
 
         topic_2 = Topic.objects.create(name='topic_2', forum=self.forum, user=self.user)
 
-        topic_1 = self.topic
-        post = topic_1.posts.all()[0]
-        post.body = 'Something completely different'
-        post.save()
+        Post.objects.create(topic=topic_1, user=self.user, body='Something completely different')
 
         self.login_client()
         response = self.client.get(reverse('pybb:topic_latest'))
@@ -594,7 +592,6 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.client.logout()
         response = self.client.get(reverse('pybb:topic_latest'))
         self.assertListEqual(list(response.context['topic_list']), [topic_2, topic_3])
-
 
     def test_hidden(self):
         client = Client()
@@ -866,7 +863,7 @@ class FeaturesTest(TestCase, SharedTestModule):
         new_post = Post.objects.order_by('-id')[0]
 
         # there should be one email in the outbox (user3)
-        #because already subscribed users will still receive notifications.
+        # because already subscribed users will still receive notifications.
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to[0], user3.email)
 
@@ -1004,10 +1001,12 @@ class FeaturesTest(TestCase, SharedTestModule):
         """
         see issue #87: https://github.com/hovel/pybbm/issues/87
         """
-        self.assertFalse(self.user.is_superuser)
-        self.assertFalse(self.user.is_staff)
-        self.assertFalse(self.topic.on_moderation)
-        self.assertEqual(self.topic.user, self.user)
+        self.user.is_superuser = False
+        self.user.is_staff = False
+        self.user.save()
+        self.topic.on_moderation = False
+        self.topic.save()
+        self.assertEqual(self.topic.user.id, self.user.id)
         user1 = User.objects.create_user('geyser', 'geyser@localhost', 'geyser')
         self.topic.forum.moderators.add(self.user)
         self.topic.forum.moderators.add(user1)

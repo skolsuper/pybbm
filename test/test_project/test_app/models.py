@@ -12,12 +12,12 @@ if django.VERSION[:2] >= (1, 5):
     from django.utils import timezone
 
     class CustomUserManager(BaseUserManager):
-        def create_user(self, username, email=None, password=None, **extra_fields):
+        def create_user(self, username, email=None, password=None, is_staff=False, is_superuser=False, is_active=True, **extra_fields):
             """
             Creates and saves a User with the given username, email and password.
             """
             email = BaseUserManager.normalize_email(email)
-            user = self.model(username=username, email=email, is_staff=False, is_active=True, is_superuser=False)
+            user = self.model(username=username, email=email, is_staff=is_staff, is_active=is_active, is_superuser=is_superuser)
 
             user.set_password(password)
             user.save(using=self._db)
