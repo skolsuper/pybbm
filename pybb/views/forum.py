@@ -177,8 +177,7 @@ class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
         return super(TopicView, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = super(TopicView, self).get_queryset()
-        return self.perms.filter_topics(self.request.user, qs)
+        return self.perms.filter_topics(self.request.user, self.queryset)
 
     def get_object(self):
         queryset = self.get_queryset()
@@ -191,7 +190,7 @@ class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
                 forum__slug=self.kwargs['forum_slug'],
                 forum__category__slug=self.kwargs['category_slug'],
                 posts__count__gt=0
-                )
+            )
         else:
             raise Http404(_('This topic does not exists'))
         return topic
