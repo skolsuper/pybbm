@@ -141,7 +141,7 @@ class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
 
     @method_decorator(csrf_protect)
     def dispatch(self, request, *args, **kwargs):
-        self.topic = self.get_object(**kwargs)
+        self.topic = self.get_object()
 
         if self.request.user.is_authenticated() or not defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER:
             Topic.objects.filter(id=self.topic.id).update(views=F('views') + 1)
@@ -150,7 +150,7 @@ class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
             cache.add(cache_key, 0)
             if cache.incr(cache_key) % defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER == 0:
                 Topic.objects.filter(id=self.topic.id).update(views=F('views') +
-                                                                defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
+                                                              defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
                 cache.set(cache_key, 0)
 
         if request.GET.get('first-unread') and request.user.is_authenticated():
@@ -180,16 +180,16 @@ class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
         qs = super(TopicView, self).get_queryset()
         return self.perms.filter_topics(self.request.user, qs)
 
-    def get_object(self, **kwargs):
+    def get_object(self):
         queryset = self.get_queryset()
-        if 'pk' in kwargs:
-            topic = get_object_or_404(queryset, pk=kwargs['pk'], posts__count__gt=0)
-        elif ('slug'and 'forum_slug'and 'category_slug') in kwargs:
+        if 'pk' in self.kwargs:
+            topic = get_object_or_404(queryset, pk=self.kwargs['pk'], posts__count__gt=0)
+        elif ('slug'and 'forum_slug'and 'category_slug') in self.kwargs:
             topic = get_object_or_404(
                 queryset,
-                slug=kwargs['slug'],
-                forum__slug=kwargs['forum_slug'],
-                forum__category__slug=kwargs['category_slug'],
+                slug=self.kwargs['slug'],
+                forum__slug=self.kwargs['forum_slug'],
+                forum__category__slug=self.kwargs['category_slug'],
                 posts__count__gt=0
                 )
         else:
