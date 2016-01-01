@@ -21,6 +21,7 @@ User = get_user_model()
 
 
 class FeaturesTest(TestCase, SharedTestModule):
+
     def setUp(self):
         self.ORIG_PYBB_ENABLE_ANONYMOUS_POST = pybb_settings.PYBB_ENABLE_ANONYMOUS_POST
         self.ORIG_PYBB_PREMODERATION = pybb_settings.PYBB_PREMODERATION
@@ -29,6 +30,10 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.create_user()
         self.create_initial()
         mail.outbox = []
+
+    def tearDown(self):
+        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = self.ORIG_PYBB_ENABLE_ANONYMOUS_POST
+        pybb_settings.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
 
     def test_base(self):
         # Check index page
@@ -577,6 +582,7 @@ class FeaturesTest(TestCase, SharedTestModule):
         response = self.client.get(reverse('pybb:topic_latest'))
         self.assertListEqual(list(response.context['topic_list']), [topic_2, topic_3])
 
+
     def test_hidden(self):
         client = Client()
         category = Category(name='hcat', hidden=True)
@@ -638,7 +644,6 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.assertEqual(client.get(topic_in_hidden.get_absolute_url()).status_code, 200)
         self.assertEqual(client.get(forum_hidden.get_absolute_url()).status_code, 200)
         self.assertEqual(client.get(topic_hidden.get_absolute_url()).status_code, 200)
-
 
     def test_inactive(self):
         self.login_client()
@@ -995,7 +1000,3 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.login_client()
         response = self.client.get(reverse('pybb:add_post', kwargs={'topic_id': self.topic.id}))
         self.assertEqual(response.status_code, 200)
-
-    def tearDown(self):
-        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = self.ORIG_PYBB_ENABLE_ANONYMOUS_POST
-        pybb_settings.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION

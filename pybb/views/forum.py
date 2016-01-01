@@ -126,6 +126,7 @@ class LatestTopicsView(PermissionsMixin, PaginatorMixin, generic.ListView):
 class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
     paginate_by = defaults.settings.PYBB_TOPIC_PAGE_SIZE
     serializer_class = TopicSerializer
+    queryset = Topic.objects.annotate(Count('posts'))
 
     def get(self, request, *args, **kwargs):
         if defaults.settings.PYBB_NICE_URL and 'pk' in kwargs:
@@ -180,11 +181,12 @@ class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
         return self.perms.filter_topics(self.request.user, qs)
 
     def get_object(self, **kwargs):
+        queryset = self.get_queryset()
         if 'pk' in kwargs:
-            topic = get_object_or_404(Topic.objects.annotate(Count('posts')), pk=kwargs['pk'], posts__count__gt=0)
+            topic = get_object_or_404(queryset, pk=kwargs['pk'], posts__count__gt=0)
         elif ('slug'and 'forum_slug'and 'category_slug') in kwargs:
             topic = get_object_or_404(
-                Topic.objects.annotate(Count('posts')),
+                queryset,
                 slug=kwargs['slug'],
                 forum__slug=kwargs['forum_slug'],
                 forum__category__slug=kwargs['category_slug'],
