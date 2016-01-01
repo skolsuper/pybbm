@@ -15,7 +15,9 @@ Profile = util.get_pybb_profile_model()
 class LogonRedirectTest(TestCase, SharedTestModule):
     """ test whether anonymous user gets redirected, whereas unauthorized user gets PermissionDenied """
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
+        super(LogonRedirectTest, cls).setUpClass()
         # create users
         staff = User.objects.create_user('staff', 'staff@localhost', 'staff')
         staff.is_staff = True
@@ -25,14 +27,20 @@ class LogonRedirectTest(TestCase, SharedTestModule):
         nostaff.save()
 
         # create topic, post in hidden category
-        self.category = Category(name='private', hidden=True)
-        self.category.save()
-        self.forum = Forum(name='priv1', category=self.category)
-        self.forum.save()
-        self.topic = Topic(name='a topic', forum=self.forum, user=staff)
-        self.topic.save()
-        self.post = Post(body='body post', topic=self.topic, user=staff, on_moderation=True)
-        self.post.save()
+        cls.category = Category(name='private', hidden=True)
+        cls.category.save()
+        cls.forum = Forum(name='priv1', category=cls.category)
+        cls.forum.save()
+        cls.topic = Topic(name='a topic', forum=cls.forum, user=staff)
+        cls.topic.save()
+        cls.post = Post(body='body post', topic=cls.topic, user=staff, on_moderation=True)
+        cls.post.save()
+
+    @classmethod
+    def tearDownClass(cls):
+        User.objects.filter(username__contains='staff').delete()
+        cls.category.delete()
+        super(LogonRedirectTest, cls).tearDownClass()
 
     def test_redirect_category(self):
         # access without user should be redirected

@@ -30,6 +30,8 @@ class FeaturesTest(TestCase, SharedTestModule):
         pybb_settings.PYBB_PREMODERATION = False
         pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = False
         cls.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        cls.user.is_active = True
+        cls.user.save()
         cls.category = Category.objects.create(name='foo')
         cls.forum = Forum.objects.create(name='xfoo', description='bar', category=cls.category)
         cls.topic = Topic.objects.create(name='etopic', forum=cls.forum, user=cls.user)
@@ -669,6 +671,8 @@ class FeaturesTest(TestCase, SharedTestModule):
         values['body'] = 'test ban 2'
         self.client.post(url, values, follow=True)
         self.assertEqual(len(Post.objects.filter(body='test ban 2')), 0)
+        self.user.is_active = True
+        self.user.save()
 
     def get_csrf(self, form):
         return form.xpath('//input[@name="csrfmiddlewaretoken"]/@value')[0]
@@ -703,7 +707,7 @@ class FeaturesTest(TestCase, SharedTestModule):
 
     def test_user_unblocking(self):
         user = User.objects.create_user('test', 'test@localhost', 'test')
-        user.is_active=False
+        user.is_active = False
         user.save()
         self.user.is_superuser = True
         self.user.save()
