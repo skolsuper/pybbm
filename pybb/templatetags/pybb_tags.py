@@ -1,19 +1,20 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-import inspect
 
+import inspect
 import math
 import time
 import warnings
 
 from django import template
+from django.apps import apps
 from django.core.cache import cache
 from django.utils import dateformat
 from django.utils.encoding import smart_text
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext as _
 from django.utils.timezone import timedelta, now as tznow
+from django.utils.translation import ugettext as _
 
 try:
     import pytils
@@ -21,7 +22,7 @@ try:
 except ImportError:
     pytils_enabled = False
 
-from pybb import util, compat
+from pybb import util
 from pybb.models import TopicReadTracker, ForumReadTracker, PollAnswerUser, Topic, Post
 from pybb.permissions import get_perms
 from pybb.settings import settings
@@ -266,7 +267,7 @@ load_perms_filters()
 
 @register.filter
 def check_app_installed(app_name):
-    return compat.is_installed(app_name)
+    return apps.is_installed(app_name)
 
 
 @register.filter

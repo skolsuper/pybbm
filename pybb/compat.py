@@ -48,15 +48,6 @@ def get_paginator_class():
     return Paginator, pure_pagination
 
 
-def is_installed(app_name):
-    if django.VERSION[:2] < (1, 7):
-        from django.db.models import get_apps
-        return app_name in get_apps()
-    else:
-        from django.apps import apps
-        return apps.is_installed(app_name)
-
-
 def get_related_model_class(parent_model, field_name):
     if django.VERSION[:2] < (1, 8):
         return getattr(parent_model, field_name).related.model
