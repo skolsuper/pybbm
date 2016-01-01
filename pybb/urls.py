@@ -57,7 +57,7 @@ urlpatterns += patterns('pybb.views',
                         url('^post/(?P<pk>\d+)/moderate/$', ModeratePost.as_view(), name='moderate_post'),
 
                         # Attachment
-                        #url('^attachment/(\w+)/$', 'show_attachment', name='pybb_attachment'),
+                        # url('^attachment/(\w+)/$', 'show_attachment', name='pybb_attachment'),
 
                         # Subscription
                         url('^subscription/topic/(\d+)/delete/$',
@@ -71,6 +71,7 @@ urlpatterns += patterns('pybb.views',
                         # Commands
                         url('^mark_all_as_read/$', 'mark_all_as_read', name='mark_all_as_read'),
 
+                        # Human readable urls
                         url(r'^c/(?P<slug>[\w-]+)/$', CategoryView.as_view(), name='category'),
                         url(r'^c/(?P<category_slug>[\w-]+)/(?P<slug>[\w-]+)/$', ForumView.as_view(),
                             name='forum'),
