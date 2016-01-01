@@ -4,10 +4,10 @@ from __future__ import unicode_literals
 import os
 import uuid
 import warnings
+from importlib import import_module
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.utils.importlib import import_module
 from django.utils.six import string_types
 from django.utils.translation import ugettext as _
 
