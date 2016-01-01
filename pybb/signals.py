@@ -1,12 +1,13 @@
 # coding=utf-8
 from __future__ import unicode_literals
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import Signal
-from django.db.models.signals import post_save, post_delete, pre_save
 
-from pybb import util, settings as defaults, compat
+from pybb import util, settings as defaults
 from pybb.models import Post, Category, Topic, Forum
 from pybb.permissions import get_perms
 from pybb.subscription import notify_topic_subscribers
@@ -70,4 +71,4 @@ def setup():
     if not defaults.settings.PYBB_DISABLE_NOTIFICATIONS:
         topic_updated.connect(notify_topic_subscribers, sender=Post)
     if defaults.settings.PYBB_AUTO_USER_PERMISSIONS:
-        post_save.connect(user_saved, sender=compat.get_user_model())
+        post_save.connect(user_saved, sender=get_user_model())

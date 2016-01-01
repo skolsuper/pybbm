@@ -5,6 +5,7 @@ import re
 import inspect
 
 from django import forms
+from django.contrib.auth import get_user_model
 from django.core.exceptions import FieldError
 from django.forms.models import inlineformset_factory, BaseInlineFormSet
 from django.utils.translation import ugettext, ugettext_lazy
@@ -14,7 +15,7 @@ from pybb import compat, settings as defaults, util
 from pybb.models import Topic, Post, Attachment, PollAnswer
 
 
-User = compat.get_user_model()
+User = get_user_model()
 username_field = compat.get_username_field()
 
 

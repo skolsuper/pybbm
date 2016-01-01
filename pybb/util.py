@@ -4,13 +4,15 @@ from __future__ import unicode_literals
 import os
 import warnings
 import uuid
+
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
 from django.utils.importlib import import_module
 from django.utils.six import string_types
 from django.utils.translation import ugettext as _
 
-from pybb.compat import get_username_field, get_user_model, slugify, get_related_model_class
+from pybb.compat import get_username_field, slugify, get_related_model_class
 from pybb.settings import settings
 from pybb.markup.base import BaseParser
 

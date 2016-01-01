@@ -2,6 +2,7 @@
 
 from __future__ import unicode_literals
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404
@@ -14,7 +15,7 @@ from pybb.models import Topic, Post
 from pybb.views.mixins import PaginatorMixin
 from pybb.permissions import PermissionsMixin
 
-User = compat.get_user_model()
+User = get_user_model()
 username_field = compat.get_username_field()
 
 

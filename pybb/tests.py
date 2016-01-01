@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import datetime
 import os
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.conf import settings
 from django.core import mail
@@ -21,7 +22,7 @@ from pybb.templatetags.pybb_tags import pybb_is_topic_unread, pybb_topic_unread,
     pybb_get_latest_topics, pybb_get_latest_posts
 from pybb import compat, util
 
-User = compat.get_user_model()
+User = get_user_model()
 username_field = compat.get_username_field()
 
 try:

@@ -2,6 +2,7 @@
 
 from __future__ import unicode_literals
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
@@ -21,7 +22,7 @@ from pybb.permissions import get_perms, PermissionsMixin
 from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
 from pybb.views.mixins import PybbFormsMixin
 
-User = compat.get_user_model()
+User = get_user_model()
 username_field = compat.get_username_field()
 
 
