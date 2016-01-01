@@ -1,10 +1,11 @@
 from __future__ import unicode_literals
 
 import django
+from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.db import models
 
-from pybb.compat import get_user_model_path, get_username_field
+from pybb.compat import get_username_field
 from pybb.profiles import PybbProfile
 
 if django.VERSION[:2] >= (1, 5):
@@ -40,7 +41,7 @@ if django.VERSION[:2] >= (1, 5):
 
 class CustomProfile(PybbProfile):
     user = models.OneToOneField(
-        get_user_model_path(),
+        settings.AUTH_USER_MODEL,
         verbose_name='linked account',
         related_name='pybb_customprofile',
         blank=False, null=False,

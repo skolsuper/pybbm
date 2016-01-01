@@ -42,13 +42,6 @@ def get_user_model():
         return User
 
 
-def get_user_model_path():
-    if django.VERSION[:2] >= (1, 5):
-        return getattr(settings, 'AUTH_USER_MODEL', 'auth.User')
-    else:
-        return 'auth.User'
-
-
 def get_username_field():
     if django.VERSION[:2] >= (1, 5):
         return get_user_model().USERNAME_FIELD

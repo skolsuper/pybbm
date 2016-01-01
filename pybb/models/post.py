@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
@@ -8,7 +9,6 @@ from django.utils.html import strip_tags
 from django.utils.timezone import now as tznow
 from django.utils.translation import ugettext_lazy as _
 
-from pybb.compat import get_user_model_path
 from pybb.models.topic import Topic
 from pybb.util import _get_markup_formatter, unescape
 
@@ -43,7 +43,7 @@ class Post(RenderableItem):
         app_label = 'pybb'
 
     topic = models.ForeignKey(Topic, related_name='posts', verbose_name=_('Topic'))
-    user = models.ForeignKey(get_user_model_path(), related_name='posts', verbose_name=_('User'))
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='posts', verbose_name=_('User'))
     created = models.DateTimeField(_('Created'), blank=True, db_index=True, auto_now_add=True)
     updated = models.DateTimeField(_('Updated'), blank=True, default=tznow)
     user_ip = models.IPAddressField(_('User IP'), blank=True, default='0.0.0.0')

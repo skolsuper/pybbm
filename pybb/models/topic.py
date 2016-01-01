@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from django.conf import settings as django_settings
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
-from django.utils.timezone import now as tznow
 from django.utils.translation import ugettext_lazy as _
 
-from pybb.compat import get_user_model_path
 from pybb.models.poll import PollAnswerUser
 from pybb.settings import settings
 
@@ -36,13 +35,13 @@ class Topic(models.Model):
     forum = models.ForeignKey('Forum', related_name='topics', verbose_name=_('Forum'))
     name = models.CharField(_('Subject'), max_length=255)
     created = models.DateTimeField(_('Created'), auto_now_add=True)
-    user = models.ForeignKey(get_user_model_path(), related_name='topics', verbose_name=_('User'))
+    user = models.ForeignKey(django_settings.AUTH_USER_MODEL, related_name='topics', verbose_name=_('User'))
     views = models.IntegerField(_('Views count'), blank=True, default=0)
     sticky = models.BooleanField(_('Sticky'), blank=True, default=False)
     closed = models.BooleanField(_('Closed'), blank=True, default=False)
-    subscribers = models.ManyToManyField(get_user_model_path(), related_name='subscriptions',
+    subscribers = models.ManyToManyField(django_settings.AUTH_USER_MODEL, related_name='subscriptions',
                                          verbose_name=_('Subscribers'), blank=True)
-    readed_by = models.ManyToManyField(get_user_model_path(), through='TopicReadTracker', related_name='readed_topics')
+    readed_by = models.ManyToManyField(django_settings.AUTH_USER_MODEL, through='TopicReadTracker', related_name='readed_topics')
     on_moderation = models.BooleanField(_('On moderation'), default=False)
     poll_type = models.IntegerField(_('Poll type'), choices=POLL_TYPE_CHOICES, default=POLL_TYPE_NONE)
     poll_question = models.TextField(_('Poll question'), blank=True, null=True)

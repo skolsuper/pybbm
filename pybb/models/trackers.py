@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from django.conf import settings
 from django.db import models, transaction, DatabaseError
 from django.utils.translation import ugettext_lazy as _
 
-from pybb.compat import get_atomic_func, get_user_model_path
+from pybb.compat import get_atomic_func
 
 
 class TopicReadTrackerManager(models.Manager):
@@ -40,7 +41,7 @@ class TopicReadTracker(models.Model):
         unique_together = ('user', 'topic')
         app_label = 'pybb'
 
-    user = models.ForeignKey(get_user_model_path(), blank=False, null=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, blank=False, null=False)
     topic = models.ForeignKey('Topic', blank=True, null=True)
     time_stamp = models.DateTimeField(auto_now=True)
 
@@ -80,7 +81,7 @@ class ForumReadTracker(models.Model):
         unique_together = ('user', 'forum')
         app_label = 'pybb'
 
-    user = models.ForeignKey(get_user_model_path(), blank=False, null=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, blank=False, null=False)
     forum = models.ForeignKey('Forum', blank=True, null=True)
     time_stamp = models.DateTimeField(auto_now=True)
 

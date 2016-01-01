@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from django.conf import settings
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
-
-from pybb.compat import get_user_model_path
 
 
 @python_2_unicode_compatible
@@ -43,7 +42,7 @@ class PollAnswerUser(models.Model):
         app_label = 'pybb'
 
     poll_answer = models.ForeignKey(PollAnswer, related_name='users', verbose_name=_('Poll answer'))
-    user = models.ForeignKey(get_user_model_path(), related_name='poll_answers', verbose_name=_('User'))
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='poll_answers', verbose_name=_('User'))
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
