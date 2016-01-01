@@ -4,11 +4,13 @@ from __future__ import unicode_literals
 from django.conf import settings as django_settings
 from django.core.urlresolvers import reverse
 from django.db import models
+from django.db.models import Max
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
 from pybb.models.post import Post
+from pybb.models.topic import Topic
 from pybb.settings import settings
 
 
@@ -44,6 +46,12 @@ class Forum(models.Model):
             return self.posts.order_by('-updated')[0].updated
         except IndexError:
             return None
+
+    @cached_property
+    def topics(self):
+        return Topic.objects.filter(forum=self)\
+                            .annotate(last_update=Max('posts__updated'))\
+                            .order_by('-sticky', '-last_update', '-id')
 
     def get_absolute_url(self):
         if settings.PYBB_NICE_URL:

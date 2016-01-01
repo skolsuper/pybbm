@@ -17,6 +17,7 @@ from rest_framework.generics import RetrieveAPIView, ListAPIView
 from pybb import util
 from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTracker
 from pybb.permissions import PermissionsMixin
+from pybb.serializers.forum import ForumSerializer
 from pybb.serializers.topic import TopicSerializer
 from pybb.settings import settings
 from pybb.views.mixins import RedirectToLoginMixin, PaginatorMixin
@@ -70,46 +71,31 @@ class CategoryView(PermissionsMixin, RedirectToLoginMixin, generic.DetailView):
         return super(CategoryView, self).get(*args, **kwargs)
 
 
-class ForumView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, generic.ListView):
+class ForumView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
 
     paginate_by = settings.PYBB_FORUM_PAGE_SIZE
-    context_object_name = 'topic_list'
-    template_name = 'pybb/forum.html'
-
-    def dispatch(self, request, *args, **kwargs):
-        self.forum = self.get_forum(**kwargs)
-        return super(ForumView, self).dispatch(request, *args, **kwargs)
-
-    def get_login_redirect_url(self):
-        return self.forum.get_absolute_url()
-
-    def get_context_data(self, **kwargs):
-        ctx = super(ForumView, self).get_context_data(**kwargs)
-        ctx['forum'] = self.forum
-        ctx['forum'].forums_accessed = self.perms.filter_forums(self.request.user, self.forum.child_forums.all())
-        return ctx
+    queryset = Forum.objects.all()
+    serializer_class = ForumSerializer
 
     def get_queryset(self):
-        if not self.perms.may_view_forum(self.request.user, self.forum):
-            raise PermissionDenied
+        return self.perms.filter_forums(self.request.user, self.queryset)
 
-        qs = self.forum.topics.annotate(last_update=Max('posts__updated')).order_by('-sticky', '-last_update', '-id')
-        qs = self.perms.filter_topics(self.request.user, qs)
-        return qs
-
-    def get_forum(self, **kwargs):
-        if 'pk' in kwargs:
-            forum = get_object_or_404(Forum.objects.all(), pk=kwargs['pk'])
-        elif ('slug' and 'category_slug') in kwargs:
-            forum = get_object_or_404(Forum, slug=kwargs['slug'], category__slug=kwargs['category_slug'])
+    def get_object(self):
+        queryset = self.get_queryset()
+        if 'pk' in self.kwargs:
+            forum = get_object_or_404(queryset, pk=self.kwargs['pk'])
+        elif ('slug' and 'category_slug') in self.kwargs:
+            forum = get_object_or_404(Forum, slug=self.kwargs['slug'], category__slug=self.kwargs['category_slug'])
         else:
             raise Http404(_('Forum does not exist'))
+        if not self.perms.may_view_forum(self.request.user, forum):
+            raise PermissionDenied
         return forum
 
-    def get(self, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         if settings.PYBB_NICE_URL and 'pk' in kwargs:
-            return redirect(self.forum, permanent=settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
-        return super(ForumView, self).get(*args, **kwargs)
+            return redirect(self.get_object().get_absolute_url(), permanent=settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
+        return super(ForumView, self).get(request, *args, **kwargs)
 
 
 class LatestTopicsView(PermissionsMixin, PaginatorMixin, ListAPIView):
@@ -126,7 +112,7 @@ class LatestTopicsView(PermissionsMixin, PaginatorMixin, ListAPIView):
 class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
     paginate_by = settings.PYBB_TOPIC_PAGE_SIZE
     serializer_class = TopicSerializer
-    queryset = Topic.objects.filter(posts__count__gt=0).annotate(Count('posts'))
+    queryset = Topic.objects.annotate(Count('posts'))
 
     def get(self, request, *args, **kwargs):
         if settings.PYBB_NICE_URL and 'pk' in kwargs:
