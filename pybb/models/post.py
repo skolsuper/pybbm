@@ -5,43 +5,21 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
-from django.utils.html import strip_tags
 from django.utils.timezone import now as tznow
 from django.utils.translation import ugettext_lazy as _
 
 from pybb.models.topic import Topic
-from pybb.util import _get_markup_formatter, unescape
-
-
-class RenderableItem(models.Model):
-    """
-    Base class for models that has markup, body, body_text and body_html fields.
-    """
-
-    class Meta(object):
-        abstract = True
-
-    body = models.TextField(_('Message'))
-    body_html = models.TextField(_('HTML version'))
-    body_text = models.TextField(_('Text version'))
-
-    def render(self):
-        self.body_html = _get_markup_formatter()(self.body)
-        # Remove tags which was generated with the markup processor
-        text = strip_tags(self.body_html)
-        # Unescape entities which was generated with the markup processor
-        self.body_text = unescape(text)
 
 
 @python_2_unicode_compatible
-class Post(RenderableItem):
+class Post(models.Model):
 
     class Meta(object):
         ordering = ['created']
         verbose_name = _('Post')
         verbose_name_plural = _('Posts')
-        app_label = 'pybb'
 
+    body = models.TextField(_('Message'))
     topic = models.ForeignKey(Topic, related_name='posts', verbose_name=_('Topic'))
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='posts', verbose_name=_('User'))
     created = models.DateTimeField(_('Created'), blank=True, db_index=True, auto_now_add=True)
@@ -58,7 +36,6 @@ class Post(RenderableItem):
         return self.summary()
 
     def save(self, *args, **kwargs):
-        self.render()
         super(Post, self).save(*args, **kwargs)
 
         # If post is topic head and moderated, moderate topic too

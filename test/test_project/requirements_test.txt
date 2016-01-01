@@ -1,4 +1,5 @@
-lxml
-Pillow
 bbcode
+djangorestframework
+lxml
 markdown
+Pillow

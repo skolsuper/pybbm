@@ -14,6 +14,8 @@ from django.utils.decorators import method_decorator
 from django.views import generic
 from django.views.decorators.csrf import csrf_protect
 
+from rest_framework.generics import DestroyAPIView
+
 from pybb import settings as defaults, util
 from pybb.models import Forum, Topic, Post
 from pybb.permissions import PermissionsMixin
@@ -148,37 +150,13 @@ class ModeratePost(PermissionsMixin, generic.RedirectView):
         return post.get_absolute_url()
 
 
-class DeletePostView(PermissionsMixin, generic.DeleteView):
-
-    template_name = 'pybb/delete_post.html'
-    context_object_name = 'post'
+class DeletePostView(PermissionsMixin, DestroyAPIView):
 
     def get_object(self, queryset=None):
         post = get_object_or_404(Post.objects.select_related('topic', 'topic__forum'), pk=self.kwargs['pk'])
         if not self.perms.may_delete_post(self.request.user, post):
             raise PermissionDenied
-        self.topic = post.topic
-        self.forum = post.topic.forum
-        if not self.perms.may_moderate_topic(self.request.user, self.topic):
+        topic = post.topic
+        if not self.perms.may_moderate_topic(self.request.user, topic):
             raise PermissionDenied
         return post
-
-    def delete(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        self.object.delete()
-        redirect_url = self.get_success_url()
-        if not request.is_ajax():
-            return HttpResponseRedirect(redirect_url)
-        else:
-            return HttpResponse(redirect_url)
-
-    def get_success_url(self):
-        try:
-            Topic.objects.get(pk=self.topic.id)
-        except Topic.DoesNotExist:
-            return self.forum.get_absolute_url()
-        else:
-            if not self.request.is_ajax():
-                return self.topic.get_absolute_url()
-            else:
-                return ""
