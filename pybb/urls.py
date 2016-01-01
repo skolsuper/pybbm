@@ -7,7 +7,6 @@ except ImportError:
     from django.conf.urls.defaults import patterns, include, url
 
 from pybb.feeds import LastPosts, LastTopics
-from pybb.settings import settings
 from pybb.views import IndexView, CategoryView, ForumView, TopicView,\
     AddPostView, EditPostView, UserView, PostView, ProfileEditView,\
     DeletePostView, StickTopicView, UnstickTopicView, CloseTopicView,\
@@ -70,14 +69,11 @@ urlpatterns += patterns('pybb.views',
                         url('^api/post_ajax_preview/$', 'post_ajax_preview', name='post_ajax_preview'),
 
                         # Commands
-                        url('^mark_all_as_read/$', 'mark_all_as_read', name='mark_all_as_read')
-                        )
+                        url('^mark_all_as_read/$', 'mark_all_as_read', name='mark_all_as_read'),
 
-if settings.PYBB_NICE_URL:
-    urlpatterns += patterns('pybb.views',
-                            url(r'^c/(?P<slug>[\w-]+)/$', CategoryView.as_view(), name='category'),
-                            url(r'^c/(?P<category_slug>[\w-]+)/(?P<slug>[\w-]+)/$', ForumView.as_view(),
-                                name='forum'),
-                            url(r'^c/(?P<category_slug>[\w-]+)/(?P<forum_slug>[\w-]+)/(?P<slug>[\w-]+)/$',
-                                TopicView.as_view(), name='topic'),
-                            )
+                        url(r'^c/(?P<slug>[\w-]+)/$', CategoryView.as_view(), name='category'),
+                        url(r'^c/(?P<category_slug>[\w-]+)/(?P<slug>[\w-]+)/$', ForumView.as_view(),
+                            name='forum'),
+                        url(r'^c/(?P<category_slug>[\w-]+)/(?P<forum_slug>[\w-]+)/(?P<slug>[\w-]+)/$',
+                            TopicView.as_view(), name='topic'),
+                        )

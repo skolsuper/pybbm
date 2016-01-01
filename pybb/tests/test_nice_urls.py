@@ -3,30 +3,41 @@
 from __future__ import unicode_literals
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from lxml import html
 
 from pybb import compat
-from pybb.models import Category, Forum, Topic
+from pybb.models import Category, Forum, Topic, Post
 from pybb.settings import settings as pybb_settings
 from pybb.tests.utils import SharedTestModule
 
+User = get_user_model()
 
+
+@override_settings(PYBB_NICE_URL=True)
 class NiceUrlsTest(TestCase, SharedTestModule):
-    def __init__(self, *args, **kwargs):
-        super(NiceUrlsTest, self).__init__(*args, **kwargs)
-        self.ORIGINAL_PYBB_NICE_URL = pybb_settings.PYBB_NICE_URL
-        pybb_settings.PYBB_NICE_URL = True
-        self.urls = settings.ROOT_URLCONF
+
+    @classmethod
+    def setUpClass(cls):
+        super(NiceUrlsTest, cls).setUpClass()
+        cls.urls = settings.ROOT_URLCONF
+        cls.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        cls.category = Category.objects.create(name='foo')
+        cls.forum = Forum.objects.create(name='xfoo', description='bar', category=cls.category)
+        cls.topic = Topic.objects.create(name='etopic', forum=cls.forum, user=cls.user)
+        cls.post = Post.objects.create(topic=cls.topic, user=cls.user, body='bbcode [b]test[/b]')
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.category.delete()
+        cls.user.delete()
+        super(NiceUrlsTest, cls).tearDownClass()
 
     def setUp(self):
-        self.create_user()
         self.login_client()
-        self.create_initial()
-        self.ORIGINAL_PYBB_NICE_URL = pybb_settings.PYBB_NICE_URL
-        pybb_settings.PYBB_NICE_URL = True
 
     def test_unicode_slugify(self):
         self.assertEqual(compat.slugify('北京 (China), Москва (Russia), é_è (a sad smiley !)'),
@@ -106,7 +117,7 @@ class NiceUrlsTest(TestCase, SharedTestModule):
             )
         response = self.client.get(self.topic.get_absolute_url())
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['topic'], self.topic)
+        self.assertEqual(response.data['name'], self.topic.name)
         self.assertEqual(
             '/c/%s/%s/%s/' % (self.category.slug, self.forum.slug, self.topic.slug),
             self.topic.get_absolute_url()
@@ -151,5 +162,3 @@ class NiceUrlsTest(TestCase, SharedTestModule):
 
         pybb_settings.PYBB_NICE_URL_PERMANENT_REDIRECT = original_perm_redirect
 
-    def tearDown(self):
-        pybb_settings.PYBB_NICE_URL = self.ORIGINAL_PYBB_NICE_URL
