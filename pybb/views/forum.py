@@ -12,12 +12,13 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext as _
 from django.views import generic
 from django.views.decorators.csrf import csrf_protect
-from rest_framework.generics import RetrieveAPIView
+from rest_framework.generics import RetrieveAPIView, ListAPIView
 
-from pybb import settings as defaults, util
+from pybb import util
 from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTracker
 from pybb.permissions import PermissionsMixin
 from pybb.serializers.topic import TopicSerializer
+from pybb.settings import settings
 from pybb.views.mixins import RedirectToLoginMixin, PaginatorMixin
 
 
@@ -64,14 +65,14 @@ class CategoryView(PermissionsMixin, RedirectToLoginMixin, generic.DetailView):
         return ctx
 
     def get(self, *args, **kwargs):
-        if defaults.settings.PYBB_NICE_URL and (('id' in kwargs) or ('pk' in kwargs)):
-            return redirect(super(CategoryView, self).get_object(), permanent=defaults.settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
+        if settings.PYBB_NICE_URL and (('id' in kwargs) or ('pk' in kwargs)):
+            return redirect(super(CategoryView, self).get_object(), permanent=settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
         return super(CategoryView, self).get(*args, **kwargs)
 
 
 class ForumView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, generic.ListView):
 
-    paginate_by = defaults.settings.PYBB_FORUM_PAGE_SIZE
+    paginate_by = settings.PYBB_FORUM_PAGE_SIZE
     context_object_name = 'topic_list'
     template_name = 'pybb/forum.html'
 
@@ -106,52 +107,39 @@ class ForumView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, generic.
         return forum
 
     def get(self, *args, **kwargs):
-        if defaults.settings.PYBB_NICE_URL and 'pk' in kwargs:
-            return redirect(self.forum, permanent=defaults.settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
+        if settings.PYBB_NICE_URL and 'pk' in kwargs:
+            return redirect(self.forum, permanent=settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
         return super(ForumView, self).get(*args, **kwargs)
 
 
-class LatestTopicsView(PermissionsMixin, PaginatorMixin, generic.ListView):
+class LatestTopicsView(PermissionsMixin, PaginatorMixin, ListAPIView):
 
-    paginate_by = defaults.settings.PYBB_FORUM_PAGE_SIZE
-    context_object_name = 'topic_list'
-    template_name = 'pybb/latest_topics.html'
+    paginate_by = settings.PYBB_FORUM_PAGE_SIZE
+    serializer_class = TopicSerializer
+    queryset = Topic.objects.annotate(Count('posts'), last_update=Max('posts__updated'))
 
     def get_queryset(self):
-        qs = Topic.objects.annotate(last_update=Max('posts__updated'))
-        qs = self.perms.filter_topics(self.request.user, qs)
+        qs = self.perms.filter_topics(self.request.user, self.queryset)
         return qs.order_by('-last_update', '-id')
 
 
 class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
-    paginate_by = defaults.settings.PYBB_TOPIC_PAGE_SIZE
+    paginate_by = settings.PYBB_TOPIC_PAGE_SIZE
     serializer_class = TopicSerializer
-    queryset = Topic.objects.annotate(Count('posts'))
+    queryset = Topic.objects.filter(posts__count__gt=0).annotate(Count('posts'))
 
     def get(self, request, *args, **kwargs):
-        if defaults.settings.PYBB_NICE_URL and 'pk' in kwargs:
-            return redirect(self.topic, permanent=defaults.settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
+        if settings.PYBB_NICE_URL and 'pk' in kwargs:
+            return redirect(self.topic, permanent=settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
         response = super(TopicView, self).get(request, *args, **kwargs)
+        self.bump_view_count()
         if self.request.user.is_authenticated():
             self.mark_read()
         return response
 
-    def get_login_redirect_url(self):
-        return self.topic.get_absolute_url()
-
     @method_decorator(csrf_protect)
     def dispatch(self, request, *args, **kwargs):
         self.topic = self.get_object()
-
-        if self.request.user.is_authenticated() or not defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER:
-            Topic.objects.filter(id=self.topic.id).update(views=F('views') + 1)
-        else:
-            cache_key = util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)
-            cache.add(cache_key, 0)
-            if cache.incr(cache_key) % defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER == 0:
-                Topic.objects.filter(id=self.topic.id).update(views=F('views') +
-                                                              defaults.settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
-                cache.set(cache_key, 0)
 
         if request.GET.get('first-unread') and request.user.is_authenticated():
             read_dates = []
@@ -182,18 +170,29 @@ class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
     def get_object(self):
         queryset = self.get_queryset()
         if 'pk' in self.kwargs:
-            topic = get_object_or_404(queryset, pk=self.kwargs['pk'], posts__count__gt=0)
+            topic = get_object_or_404(queryset, pk=self.kwargs['pk'])
         elif ('slug'and 'forum_slug'and 'category_slug') in self.kwargs:
             topic = get_object_or_404(
                 queryset,
                 slug=self.kwargs['slug'],
                 forum__slug=self.kwargs['forum_slug'],
                 forum__category__slug=self.kwargs['category_slug'],
-                posts__count__gt=0
             )
         else:
             raise Http404(_('This topic does not exists'))
         return topic
+
+    def bump_view_count(self):
+        topic_qs = Topic.objects.filter(id=self.get_object().id)
+        cache_buffer = settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER
+        if self.request.user.is_authenticated() or not cache_buffer:
+            topic_qs.update(views=F('views') + 1)
+        else:
+            cache_key = util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)
+            cache.add(cache_key, 0)
+            if cache.incr(cache_key) % cache_buffer == 0:
+                topic_qs.update(views=F('views') + cache_buffer)
+                cache.set(cache_key, 0)
 
     def mark_read(self):
         try:
