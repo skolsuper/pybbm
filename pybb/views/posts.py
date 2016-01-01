@@ -14,13 +14,13 @@ from django.utils.decorators import method_decorator
 from django.views import generic
 from django.views.decorators.csrf import csrf_protect
 
-from pybb import compat, settings as defaults, util
+from pybb import settings as defaults, util
 from pybb.models import Forum, Topic, Post
-from pybb.views.mixins import PostEditMixin, RedirectToLoginMixin
 from pybb.permissions import PermissionsMixin
+from pybb.views.mixins import PostEditMixin, RedirectToLoginMixin
 
 User = get_user_model()
-username_field = compat.get_username_field()
+username_field = User.USERNAME_FIELD
 
 
 class AddPostView(PostEditMixin, generic.CreateView):

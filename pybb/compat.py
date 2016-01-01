@@ -2,8 +2,6 @@
 from __future__ import unicode_literals
 
 import django
-
-from django.contrib.auth import get_user_model
 from django.utils.encoding import force_text
 from unidecode import unidecode
 
@@ -32,13 +30,6 @@ def get_image_field_full_name():
         from django.db.models import ImageField
         name = 'django.db.models.fields.files.ImageField'
     return name
-
-
-def get_username_field():
-    if django.VERSION[:2] >= (1, 5):
-        return get_user_model().USERNAME_FIELD
-    else:
-        return 'username'
 
 
 def get_atomic_func():

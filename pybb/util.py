@@ -2,19 +2,18 @@
 from __future__ import unicode_literals
 
 import os
-import warnings
 import uuid
+import warnings
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-
 from django.utils.importlib import import_module
 from django.utils.six import string_types
 from django.utils.translation import ugettext as _
 
-from pybb.compat import get_username_field, slugify, get_related_model_class
-from pybb.settings import settings
+from pybb.compat import slugify, get_related_model_class
 from pybb.markup.base import BaseParser
+from pybb.settings import settings
 
 PYBB_MARKUP = settings.PYBB_MARKUP
 PYBB_MARKUP_ENGINES_PATHS = settings.PYBB_MARKUP_ENGINES_PATHS
@@ -139,7 +138,8 @@ def get_pybb_profile(user):
 
     if not user.is_authenticated():
         if defaults.settings.PYBB_ENABLE_ANONYMOUS_POST:
-            user = get_user_model().objects.get(**{get_username_field(): defaults.settings.PYBB_ANONYMOUS_USERNAME})
+            User = get_user_model()
+            user = User.objects.get(**{User.USERNAME_FIELD: defaults.settings.PYBB_ANONYMOUS_USERNAME})
         else:
             raise ValueError(_('Can\'t get profile for anonymous user'))
 

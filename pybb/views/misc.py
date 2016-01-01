@@ -2,28 +2,28 @@
 
 from __future__ import unicode_literals
 
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
-from django.contrib import messages
 from django.http import HttpResponseRedirect, HttpResponseBadRequest,\
     HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.translation import ugettext as _
 from django.utils.decorators import method_decorator
+from django.utils.translation import ugettext as _
+from django.views import generic
 from django.views.decorators.http import require_POST
 from django.views.generic.edit import ModelFormMixin
-from django.views import generic
 
-from pybb import compat, util
+from pybb import util
 from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser
 from pybb.permissions import get_perms, PermissionsMixin
 from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
 from pybb.views.mixins import PybbFormsMixin
 
 User = get_user_model()
-username_field = compat.get_username_field()
+username_field = User.USERNAME_FIELD
 
 
 class TopicActionBaseView(PermissionsMixin, generic.View):

@@ -1,29 +1,29 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
-import datetime
-import os
 
+import os
+import datetime
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
-from django.conf import settings
 from django.core import mail
 from django.core.cache import cache
-from django.core.urlresolvers import reverse
 from django.core.exceptions import ValidationError
+from django.core.urlresolvers import reverse
 from django.db.models import Q
 from django.test import TestCase, skipUnlessDBFeature
 from django.test.client import Client
 from django.test.utils import override_settings
-from django.utils import timezone
 
+from pybb import compat, util
 from pybb import permissions
 from pybb.templatetags.pybb_tags import pybb_is_topic_unread, pybb_topic_unread, pybb_forum_unread, \
     pybb_get_latest_topics, pybb_get_latest_posts
-from pybb import compat, util
 
 User = get_user_model()
-username_field = compat.get_username_field()
+username_field = User.USERNAME_FIELD
 
 try:
     from lxml import html

@@ -1,14 +1,15 @@
 # -*- coding: utf-8
 from __future__ import unicode_literals
 
-from django.utils.translation import ugettext_lazy as _
 from django.contrib import admin
+from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
+from django.utils.translation import ugettext_lazy as _
 
+from pybb import util
 from pybb.models import Category, Forum, Topic, Post, Profile, Attachment, PollAnswer
 
-from pybb import compat, util
-username_field = compat.get_username_field()
+username_field = get_user_model().USERNAME_FIELD
 
 
 class ForumInlineAdmin(admin.TabularInline):

@@ -47,7 +47,7 @@ def notify_topic_subscribers(post, current_site, *args, **kwargs):
                 # Invalid email
                 continue
 
-            if user.email == '%s@example.com' % getattr(user, compat.get_username_field()):
+            if user.email == '%s@example.com' % user.get_username():
                 continue
 
             lang = util.get_pybb_profile(user).language or django_settings.LANGUAGE_CODE

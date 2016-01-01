@@ -2,7 +2,6 @@ from __future__ import unicode_literals
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
-from pybb import compat
 
 from pybb.models import Forum
 
@@ -16,7 +15,8 @@ class Command(BaseCommand):
             raise CommandError("Enter action {add|del} and username")
         action, username = args
         assert action in ('add', 'del')
-        user = get_user_model().objects.get(**{compat.get_username_field(): username})
+        User = get_user_model()
+        user = User.objects.get(**{User.USERNAME_FIELD: username})
         forums = Forum.objects.all()
         for forum in forums:
             forum.moderators.remove(user)

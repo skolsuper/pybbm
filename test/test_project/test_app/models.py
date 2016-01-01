@@ -5,7 +5,6 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.db import models
 
-from pybb.compat import get_username_field
 from pybb.profiles import PybbProfile
 
 if django.VERSION[:2] >= (1, 5):
@@ -52,7 +51,7 @@ class CustomProfile(PybbProfile):
         verbose_name_plural = 'Profiles'
 
     def get_absolute_url(self):
-        return reverse('pybb:user', kwargs={'username': getattr(self.user, get_username_field())})
+        return reverse('pybb:user', kwargs={'username': self.user.get_username()})
 
     def get_display_name(self):
         return self.user.get_username()

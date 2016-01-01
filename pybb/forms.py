@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
-import re
+
 import inspect
+import re
 
 from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import FieldError
 from django.forms.models import inlineformset_factory, BaseInlineFormSet
-from django.utils.translation import ugettext, ugettext_lazy
 from django.utils.timezone import now as tznow
+from django.utils.translation import ugettext, ugettext_lazy
 
-from pybb import compat, settings as defaults, util
+from pybb import settings as defaults, util
 from pybb.models import Topic, Post, Attachment, PollAnswer
 
-
 User = get_user_model()
-username_field = compat.get_username_field()
+username_field = User.USERNAME_FIELD
 
 
 class AttachmentForm(forms.ModelForm):
