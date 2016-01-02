@@ -8,10 +8,7 @@ from django.core.urlresolvers import reverse
 from django.db.models import F, Count, Max
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import redirect, get_object_or_404
-from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext as _
-from django.views import generic
-from django.views.decorators.csrf import csrf_protect
 from rest_framework.generics import RetrieveAPIView, ListAPIView
 
 from pybb import util
@@ -19,35 +16,25 @@ from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTrack
 from pybb.permissions import PermissionsMixin
 from pybb.serializers import ForumSerializer, TopicSerializer, CategorySerializer
 from pybb.settings import settings
-from pybb.views.mixins import RedirectToLoginMixin, PaginatorMixin
+from pybb.views.mixins import PaginatorMixin
 
 
-class IndexView(PermissionsMixin, generic.ListView):
+class IndexView(PermissionsMixin, ListAPIView):
 
-    template_name = 'pybb/index.html'
-    context_object_name = 'categories'
-
-    def get_context_data(self, **kwargs):
-        ctx = super(IndexView, self).get_context_data(**kwargs)
-        categories = ctx['categories']
-        for category in categories:
-            category.forums_accessed = self.perms.filter_forums(self.request.user, category.forums.filter(parent=None))
-        ctx['categories'] = categories
-        return ctx
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
 
     def get_queryset(self):
-        return self.perms.filter_categories(self.request.user, Category.objects.all())
+        return self.perms.filter_categories(self.request.user, self.queryset)
 
 
 class CategoryView(PermissionsMixin, RetrieveAPIView):
 
+    queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
-    def get_queryset(self):
-        return Category.objects.all()
-
-    def get_object(self, queryset=None):
-        obj = super(CategoryView, self).get_object(queryset)
+    def get_object(self):
+        obj = super(CategoryView, self).get_object()
         if not self.perms.may_view_category(self.request.user, obj):
             raise PermissionDenied
         return obj
@@ -88,8 +75,8 @@ class ForumView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
 class LatestTopicsView(PermissionsMixin, PaginatorMixin, ListAPIView):
 
     paginate_by = settings.PYBB_FORUM_PAGE_SIZE
-    serializer_class = TopicSerializer
     queryset = Topic.objects.annotate(Count('posts'), last_update=Max('posts__updated'))
+    serializer_class = TopicSerializer
 
     def get_queryset(self):
         qs = self.perms.filter_topics(self.request.user, self.queryset)
@@ -98,8 +85,8 @@ class LatestTopicsView(PermissionsMixin, PaginatorMixin, ListAPIView):
 
 class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
     paginate_by = settings.PYBB_TOPIC_PAGE_SIZE
-    serializer_class = TopicSerializer
     queryset = Topic.objects.annotate(Count('posts'))
+    serializer_class = TopicSerializer
 
     def get(self, request, *args, **kwargs):
         if settings.PYBB_NICE_URL and 'pk' in kwargs:
@@ -110,7 +97,6 @@ class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
             self.mark_read()
         return response
 
-    @method_decorator(csrf_protect)
     def dispatch(self, request, *args, **kwargs):
         self.topic = self.get_object()
 
