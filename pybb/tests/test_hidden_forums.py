@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
+from django.http import Http404
 from django.test import TestCase, override_settings, RequestFactory
 from rest_framework.exceptions import NotFound
 
@@ -14,9 +15,10 @@ from pybb.views import CategoryView, ForumView, TopicView
 User = get_user_model()
 Profile = util.get_pybb_profile_model()
 
+Exc404 = (Http404, NotFound)
+
 
 class HiddenCategoryTest(TestCase, SharedTestModule):
-    """ test whether anonymous user gets redirected, whereas unauthorized user gets PermissionDenied """
 
     @classmethod
     def setUpClass(cls):
@@ -46,11 +48,11 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         category_view_func = CategoryView.as_view()
         request = self.factory.get(self.category.get_absolute_url())
         request.user = AnonymousUser()
-        self.assertRaises(NotFound, category_view_func, request, pk=self.category.pk)
+        self.assertRaises(Exc404, category_view_func, request, pk=self.category.pk)
         # access with (unauthorized) user should get 404
         request.user = self.no_staff
         r = category_view_func(request, pk=self.category.pk)
-        self.assertRaises(NotFound, category_view_func, request, pk=self.category.pk)
+        self.assertRaises(Exc404, category_view_func, request, pk=self.category.pk)
         # allowed user is allowed
         request.user = self.staff
         r = category_view_func(request, pk=self.category.pk)
@@ -61,10 +63,10 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         forum_view_func = ForumView.as_view()
         request = self.factory.get(self.forum.get_absolute_url())
         request.user = AnonymousUser()
-        self.assertRaises(NotFound, forum_view_func, request, pk=self.forum.pk)
+        self.assertRaises(Exc404, forum_view_func, request, pk=self.forum.pk)
         # access with (unauthorized) user should get 404
         request.user = self.no_staff
-        self.assertRaises(NotFound, forum_view_func, request, pk=self.forum.pk)
+        self.assertRaises(Exc404, forum_view_func, request, pk=self.forum.pk)
         # allowed user is allowed
         request.user = self.staff
         r = forum_view_func(request, pk=self.forum.pk)
@@ -75,10 +77,10 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         request = self.factory.get(self.topic.get_absolute_url())
         # access without user should be redirected
         request.user = AnonymousUser()
-        self.assertRaises(NotFound, topic_view_func, request, pk=self.topic.pk)
+        self.assertRaises(Exc404, topic_view_func, request, pk=self.topic.pk)
         # access with (unauthorized) user should get 403 (forbidden)
         request.user = self.no_staff
-        self.assertRaises(NotFound, topic_view_func, request, pk=self.topic.pk)
+        self.assertRaises(Exc404, topic_view_func, request, pk=self.topic.pk)
         # allowed user is allowed
         request.user = self.staff
         r = topic_view_func(request, pk=self.topic.id)
@@ -125,24 +127,6 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         # allowed user is allowed
         r = self.get_with_user(edit_post_url, 'staff', 'staff')
         self.assertEquals(r.status_code, 200)
-
-    def test_profile_autocreation_signal_on(self):
-        user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
-        profile = getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME, None)
-        self.assertIsNotNone(profile)
-        self.assertEqual(type(profile), util.get_pybb_profile_model())
-        user.delete()
-
-    def test_profile_autocreation_middleware(self):
-        user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
-        getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME).delete()
-        #just display a page : the middleware should create the profile
-        self.get_with_user('/', 'cronos', 'cronos')
-        user = User.objects.get(username='cronos')
-        profile = getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME, None)
-        self.assertIsNotNone(profile)
-        self.assertEqual(type(profile), util.get_pybb_profile_model())
-        user.delete()
 
     def test_user_delete_cascade(self):
         user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')

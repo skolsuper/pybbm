@@ -7,7 +7,7 @@ from pybb.feeds import LastPosts, LastTopics
 from pybb.views import CategoryList, CategoryView, ForumView, TopicView,\
     CreatePostView, UpdatePostView, UserView, PostView, ProfileEditView,\
     DeletePostView, StickTopicView, UnstickTopicView, CloseTopicView,\
-    OpenTopicView, moderate_post, TopicPollVoteView, LatestTopicsView,\
+    OpenTopicView, moderate_post, TopicPollVoteView, TopicsView,\
     UserTopics, UserPosts, topic_cancel_poll_vote, block_user, unblock_user,\
     delete_subscription, add_subscription, mark_all_as_read
 
@@ -32,14 +32,14 @@ urlpatterns = [
     url('^profile/edit/$', ProfileEditView.as_view(), name='edit_profile'),
 
     # Topic
-    url('^topic/(?P<pk>\d+)/$', TopicView.as_view(), name='topic'),
-    url('^topic/(?P<pk>\d+)/stick/$', StickTopicView.as_view(), name='stick_topic'),
-    url('^topic/(?P<pk>\d+)/unstick/$', UnstickTopicView.as_view(), name='unstick_topic'),
-    url('^topic/(?P<pk>\d+)/close/$', CloseTopicView.as_view(), name='close_topic'),
-    url('^topic/(?P<pk>\d+)/open/$', OpenTopicView.as_view(), name='open_topic'),
-    url('^topic/(?P<pk>\d+)/poll_vote/$', TopicPollVoteView.as_view(), name='topic_poll_vote'),
-    url('^topic/(?P<pk>\d+)/cancel_poll_vote/$', topic_cancel_poll_vote, name='topic_cancel_poll_vote'),
-    url('^topic/latest/$', LatestTopicsView.as_view(), name='topic_latest'),
+    url('^topics/(?P<pk>\d+)/$', TopicView.as_view(), name='topic'),
+    url('^topics/(?P<pk>\d+)/stick/$', StickTopicView.as_view(), name='stick_topic'),
+    url('^topics/(?P<pk>\d+)/unstick/$', UnstickTopicView.as_view(), name='unstick_topic'),
+    url('^topics/(?P<pk>\d+)/close/$', CloseTopicView.as_view(), name='close_topic'),
+    url('^topics/(?P<pk>\d+)/open/$', OpenTopicView.as_view(), name='open_topic'),
+    url('^topics/(?P<pk>\d+)/poll_vote/$', TopicPollVoteView.as_view(), name='topic_poll_vote'),
+    url('^topics/(?P<pk>\d+)/cancel_poll_vote/$', topic_cancel_poll_vote, name='topic_cancel_poll_vote'),
+    url('^topics/$', TopicsView.as_view(), name='topic_list'),
 
     # Add topic/post
     url('^forum/(?P<forum_id>\d+)/topic/add/$', CreatePostView.as_view(), name='add_topic'),

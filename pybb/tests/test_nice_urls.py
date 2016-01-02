@@ -2,23 +2,21 @@
 
 from __future__ import unicode_literals
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
-from django.test import TestCase, override_settings
-from lxml import html
+from django.test import override_settings
+from rest_framework.test import APITestCase
 
 from pybb import compat
 from pybb.models import Category, Forum, Topic, Post
 from pybb.settings import settings as pybb_settings
-from pybb.tests.utils import SharedTestModule
 
 User = get_user_model()
 
 
 @override_settings(PYBB_NICE_URL=True)
-class NiceUrlsTest(TestCase, SharedTestModule):
+class NiceUrlsTest(APITestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -36,7 +34,7 @@ class NiceUrlsTest(TestCase, SharedTestModule):
         super(NiceUrlsTest, cls).tearDownClass()
 
     def setUp(self):
-        self.login_client()
+        self.client.force_authenticate(self.user)
 
     def test_unicode_slugify(self):
         self.assertEqual(compat.slugify('北京 (China), Москва (Russia), é_è (a sad smiley !)'),
@@ -77,21 +75,15 @@ class NiceUrlsTest(TestCase, SharedTestModule):
         slug_nb = len(Topic.objects.filter(slug__startswith=self.topic.name)) - 1
         self.assertEqual('%s-%d' % (compat.slugify(topic_name), slug_nb), topic.slug)
 
+    @override_settings(PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT=20)
     def test_fail_on_too_many_duplicate_slug(self):
-
-        original_duplicate_limit = pybb_settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT
-
-        pybb_settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT = 200
-
         try:
-            for _ in iter(range(200)):
+            for _ in iter(range(20)):
                 Topic.objects.create(name='dolly', forum=self.forum, user=self.user)
         except ValidationError as e:
-            self.fail('Should be able to create "dolly", "dolly-1", ..., "dolly-199".\n')
+            self.fail('Should be able to create "dolly", "dolly-1", ..., "dolly-19".\n')
         with self.assertRaises(ValidationError):
             Topic.objects.create(name='dolly', forum=self.forum, user=self.user)
-
-        pybb_settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT = original_duplicate_limit
 
     def test_long_duplicate_slug(self):
         long_name = 'abcde' * 51  # 255 symbols
@@ -123,25 +115,27 @@ class NiceUrlsTest(TestCase, SharedTestModule):
             )
 
     def test_add_topic(self):
-        add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.pk})
-        response = self.client.get(add_topic_url)
-        inputs = dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % "post-form")[0].inputs)
-        self.assertNotIn('slug', inputs)
-        values = self.get_form_values(response)
-        values.update({'name': self.topic.name, 'body': '[b]Test slug body[/b]', 'poll_type': 0})
-        response = self.client.post(add_topic_url, data=values, follow=True)
-        slug_nb = len(Topic.objects.filter(slug__startswith=compat.slugify(self.topic.name))) - 1
-        self.assertIsNotNone = Topic.objects.get(slug='%s-%d' % (self.topic.name, slug_nb))
+        add_topic_url = reverse('pybb:topic_list')
+        values = {
+            'name': self.topic.name,
+            'body': '[b]Test slug body[/b]',
+            'forum': self.forum.id,
+            'poll_type': Topic.POLL_TYPE_NONE
+        }
+        self.client.post(add_topic_url, data=values, follow=True)
+        slug_nb = Topic.objects.filter(slug__regex='^{}-?\d*'.format(compat.slugify(self.topic.name))).count() - 1
+        Topic.objects.get(slug='%s-%d' % (self.topic.name, slug_nb))
 
         with self.settings(PYBB_PERMISSION_HANDLER='pybb.tests.CustomPermissionHandler'):
-            response = self.client.get(add_topic_url)
-            inputs = dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % "post-form")[0].inputs)
-            self.assertIn('slug', inputs)
-            values = self.get_form_values(response)
-            values.update({'name': self.topic.name, 'body': '[b]Test slug body[/b]',
-                           'poll_type': 0, 'slug': 'test_slug'})
-            response = self.client.post(add_topic_url, data=values, follow=True)
-            self.assertIsNotNone = Topic.objects.get(slug='test_slug')
+            values = {
+                'name': self.topic.name,
+                'body': '[b]Test slug body[/b]',
+                'forum': self.forum.id,
+                'poll_type': Topic.POLL_TYPE_NONE,
+                'slug': 'test-slug'
+            }
+            self.client.post(add_topic_url, data=values, follow=True)
+            Topic.objects.get(slug='test-slug')
 
     def test_old_url_redirection(self):
 

@@ -3,13 +3,14 @@
 from __future__ import unicode_literals
 
 from django.core.cache import cache
-from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.db.models import F, Count, Max
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, get_object_or_404
-from rest_framework.exceptions import NotFound
-from rest_framework.generics import RetrieveAPIView, ListAPIView
+from rest_framework import status
+from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.generics import RetrieveAPIView, ListAPIView, ListCreateAPIView
+from rest_framework.response import Response
 
 from pybb import util
 from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTracker
@@ -77,7 +78,7 @@ class ForumView(PermissionsMixin, RetrieveAPIView):
         return super(ForumView, self).get(request, *args, **kwargs)
 
 
-class LatestTopicsView(PermissionsMixin, PaginatorMixin, ListAPIView):
+class TopicsView(PermissionsMixin, PaginatorMixin, ListCreateAPIView):
 
     paginate_by = settings.PYBB_FORUM_PAGE_SIZE
     queryset = Topic.objects.annotate(Count('posts'), last_update=Max('posts__updated'))
@@ -86,6 +87,15 @@ class LatestTopicsView(PermissionsMixin, PaginatorMixin, ListAPIView):
     def get_queryset(self):
         qs = self.perms.filter_topics(self.request.user, self.queryset)
         return qs.order_by('-last_update', '-id')
+
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data['user'] = self.request.user.id
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):

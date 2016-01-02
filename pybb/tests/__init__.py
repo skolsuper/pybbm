@@ -4,8 +4,9 @@ from pybb.tests.test_custom_permissions import (CustomPermissionHandlerTest, Cus
                                                 RestrictEditingHandler)
 from pybb.tests.test_features import FeaturesTest
 from pybb.tests.test_filters import FiltersTest
-from pybb.tests.test_login_redirects import HiddenCategoryTest
+from pybb.tests.test_hidden_forums import HiddenCategoryTest
 from pybb.tests.test_markup_parser import MarkupParserTest
 from pybb.tests.test_nice_urls import NiceUrlsTest
 from pybb.tests.test_polls import PollTest
 from pybb.tests.test_premoderation import PreModerationTest
+from pybb.tests.test_profile_create import ProfileCreateTest
