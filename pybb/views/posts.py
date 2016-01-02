@@ -3,11 +3,10 @@
 from __future__ import unicode_literals
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.generics import DestroyAPIView, CreateAPIView, UpdateAPIView, RetrieveAPIView
 from rest_framework.response import Response
 
@@ -42,7 +41,7 @@ class CreatePostView(PermissionsMixin, CreateAPIView):
                 try:
                     quote_id = int(request.query_params.get('quote_id'))
                 except TypeError:
-                    raise Http404
+                    raise NotFound
                 else:
                     post = get_object_or_404(Post, pk=quote_id)
                     if not self.perms.may_view_post(request.user, post):

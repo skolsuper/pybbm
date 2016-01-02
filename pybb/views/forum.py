@@ -6,9 +6,8 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.db.models import F, Count, Max
-from django.http import Http404, HttpResponseRedirect
+from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, get_object_or_404
-from django.utils.translation import ugettext as _
 from rest_framework.exceptions import NotFound
 from rest_framework.generics import RetrieveAPIView, ListAPIView
 
