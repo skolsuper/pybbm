@@ -3,6 +3,7 @@
 local_path.py
 settings_local.py
 dist
+.eggs
 *.egg-info
 *.sqlite
 test/example/media/pybb_upload
