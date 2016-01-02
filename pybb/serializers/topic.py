@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from pybb import compat
-from pybb.models import Topic
+from pybb.models import Topic, Post
 
 
 class DefaultSlugBuilder(object):
@@ -19,10 +19,17 @@ class TopicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Topic
-        fields = ('forum', 'name', 'created', 'user', 'views', 'sticky', 'closed', 'on_moderation', 'poll_type',
+        fields = ('forum', 'name', 'body', 'created', 'user', 'views', 'sticky', 'closed', 'on_moderation', 'poll_type',
                   'poll_question', 'slug')
 
+    body = serializers.CharField(required=True, write_only=True)
     slug = serializers.SlugField(max_length=255, required=False, default=DefaultSlugBuilder())
+
+    def save(self, **kwargs):
+        post_body = self.validated_data.pop('body')
+        instance = super(TopicSerializer, self).save(**kwargs)
+        Post.objects.create(topic=instance, user=instance.user, body=post_body, on_moderation=instance.on_moderation)
+        return instance
 
     def run_validators(self, value, unique_slug_fail_count=0):
         try:
