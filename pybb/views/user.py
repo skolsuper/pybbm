@@ -10,24 +10,29 @@ from django.utils.decorators import method_decorator
 from django.views import generic
 from django.views.decorators.csrf import csrf_protect
 
+from rest_framework.generics import RetrieveAPIView
+
 from pybb import settings as defaults, util
 from pybb.models import Topic, Post
 from pybb.permissions import PermissionsMixin
+from pybb.serializers import ProfileSerializer
 from pybb.views.mixins import PaginatorMixin
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD
 
+Profile = util.get_pybb_profile_model()
 
-class UserView(generic.DetailView):
-    model = User
-    template_name = 'pybb/user.html'
-    context_object_name = 'target_user'
 
-    def get_object(self, queryset=None):
-        if queryset is None:
-            queryset = self.get_queryset()
-        return get_object_or_404(queryset, **{username_field: self.kwargs['username']})
+class UserView(RetrieveAPIView):
+
+    queryset = User.objects.all()
+    serializer_class = ProfileSerializer
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        user = get_object_or_404(queryset, **{username_field: self.kwargs['username']})
+        return util.get_pybb_profile(user)
 
 
 class UserPosts(PermissionsMixin, PaginatorMixin, generic.ListView):
