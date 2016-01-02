@@ -3,19 +3,13 @@
 from __future__ import unicode_literals
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
-from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404
-from django.utils.decorators import method_decorator
-from django.views import generic
-from django.views.decorators.csrf import csrf_protect
-
-from rest_framework.generics import RetrieveAPIView
+from rest_framework.generics import RetrieveAPIView, ListAPIView, UpdateAPIView
 
 from pybb import settings as defaults, util
 from pybb.models import Topic, Post
 from pybb.permissions import PermissionsMixin
-from pybb.serializers import ProfileSerializer
+from pybb.serializers import ProfileSerializer, PostSerializer, TopicSerializer
 from pybb.views.mixins import PaginatorMixin
 
 User = get_user_model()
@@ -35,70 +29,38 @@ class UserView(RetrieveAPIView):
         return util.get_pybb_profile(user)
 
 
-class UserPosts(PermissionsMixin, PaginatorMixin, generic.ListView):
-    model = Post
-    paginate_by = defaults.settings.PYBB_TOPIC_PAGE_SIZE
-    template_name = 'pybb/user_posts.html'
+class UserPosts(PermissionsMixin, PaginatorMixin, ListAPIView):
 
-    def dispatch(self, request, *args, **kwargs):
-        username = kwargs.pop('username')
-        self.user = get_object_or_404(**{'klass': User, username_field: username})
-        return super(UserPosts, self).dispatch(request, *args, **kwargs)
+    paginate_by = defaults.settings.PYBB_TOPIC_PAGE_SIZE
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
 
     def get_queryset(self):
         qs = super(UserPosts, self).get_queryset()
-        qs = qs.filter(user=self.user)
-        qs = self.perms.filter_posts(self.request.user, qs).select_related('topic')
+        user = get_object_or_404(User.objects.all(), **{User.USERNAME_FIELD: self.kwargs['username']})
+        qs = qs.filter(user=user)
+        qs = self.perms.filter_posts(self.request.user, qs)
         qs = qs.order_by('-created', '-updated', '-id')
         return qs
 
-    def get_context_data(self, **kwargs):
-        context = super(UserPosts, self).get_context_data(**kwargs)
-        context['target_user'] = self.user
-        return context
 
-
-class UserTopics(PermissionsMixin, PaginatorMixin, generic.ListView):
-    model = Topic
+class UserTopics(PermissionsMixin, PaginatorMixin, ListAPIView):
     paginate_by = defaults.settings.PYBB_FORUM_PAGE_SIZE
-    template_name = 'pybb/user_topics.html'
-
-    def dispatch(self, request, *args, **kwargs):
-        username = kwargs.pop('username')
-        self.user = get_object_or_404(User, username=username)
-        return super(UserTopics, self).dispatch(request, *args, **kwargs)
+    queryset = Topic.objects.all()
+    serializer_class = TopicSerializer
 
     def get_queryset(self):
         qs = super(UserTopics, self).get_queryset()
-        qs = qs.filter(user=self.user)
-        qs = self.perms.filter_topics(self.user, qs)
+        user = get_object_or_404(User.objects.all(), **{User.USERNAME_FIELD: self.kwargs['username']})
+        qs = qs.filter(user=user)
+        qs = self.perms.filter_topics(self.request.user, qs)
         qs = qs.order_by('-posts__updated', '-created', '-id')
         return qs
 
-    def get_context_data(self, **kwargs):
-        context = super(UserTopics, self).get_context_data(**kwargs)
-        context['target_user'] = self.user
-        return context
 
+class ProfileEditView(UpdateAPIView):
 
-class ProfileEditView(generic.UpdateView):
+    serializer_class = ProfileSerializer
 
-    template_name = 'pybb/edit_profile.html'
-
-    def get_object(self, queryset=None):
+    def get_object(self):
         return util.get_pybb_profile(self.request.user)
-
-    def get_form_class(self):
-        if not self.form_class:
-            from pybb.forms import EditProfileForm
-            return EditProfileForm
-        else:
-            return super(ProfileEditView, self).get_form_class()
-
-    @method_decorator(login_required)
-    @method_decorator(csrf_protect)
-    def dispatch(self, request, *args, **kwargs):
-        return super(ProfileEditView, self).dispatch(request, *args, **kwargs)
-
-    def get_success_url(self):
-        return reverse('pybb:edit_profile')
