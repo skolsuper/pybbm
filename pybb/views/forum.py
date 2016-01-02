@@ -9,6 +9,7 @@ from django.db.models import F, Count, Max
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import redirect, get_object_or_404
 from django.utils.translation import ugettext as _
+from rest_framework.exceptions import NotFound
 from rest_framework.generics import RetrieveAPIView, ListAPIView
 
 from pybb import util
@@ -34,7 +35,13 @@ class CategoryView(PermissionsMixin, RetrieveAPIView):
     serializer_class = CategorySerializer
 
     def get_object(self):
-        obj = super(CategoryView, self).get_object()
+        if 'pk' in self.kwargs:
+            lookup = {'pk': self.kwargs['pk']}
+        elif 'slug' in self.kwargs:
+            lookup = {'slug': self.kwargs['slug']}
+        else:
+            raise NotFound
+        obj = get_object_or_404(self.get_queryset(), **lookup)
         if not self.perms.may_view_category(self.request.user, obj):
             raise PermissionDenied
         return obj
@@ -54,13 +61,13 @@ class ForumView(PermissionsMixin, RetrieveAPIView):
         return self.perms.filter_forums(self.request.user, self.queryset)
 
     def get_object(self):
-        queryset = self.get_queryset()
         if 'pk' in self.kwargs:
-            forum = get_object_or_404(queryset, pk=self.kwargs['pk'])
+            lookup = {'pk': self.kwargs['pk']}
         elif ('slug' and 'category_slug') in self.kwargs:
-            forum = get_object_or_404(Forum, slug=self.kwargs['slug'], category__slug=self.kwargs['category_slug'])
+            lookup = {'slug': self.kwargs['slug'], 'category__slug': self.kwargs['category_slug']}
         else:
-            raise Http404(_('Forum does not exist'))
+            raise NotFound
+        forum = get_object_or_404(self.get_queryset(), **lookup)
         if not self.perms.may_view_forum(self.request.user, forum):
             raise PermissionDenied
         return forum
@@ -125,18 +132,17 @@ class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
         return self.perms.filter_topics(self.request.user, self.queryset)
 
     def get_object(self):
-        queryset = self.get_queryset()
         if 'pk' in self.kwargs:
-            topic = get_object_or_404(queryset, pk=self.kwargs['pk'])
+            lookup = {'pk': self.kwargs['pk']}
         elif ('slug'and 'forum_slug'and 'category_slug') in self.kwargs:
-            topic = get_object_or_404(
-                queryset,
-                slug=self.kwargs['slug'],
-                forum__slug=self.kwargs['forum_slug'],
-                forum__category__slug=self.kwargs['category_slug'],
-            )
+            lookup = {
+                'slug': self.kwargs['slug'],
+                'forum__slug': self.kwargs['forum_slug'],
+                'forum__category__slug': self.kwargs['category_slug']
+            }
         else:
-            raise Http404(_('This topic does not exists'))
+            raise NotFound
+        topic = get_object_or_404(self.get_queryset(), **lookup)
         return topic
 
     def bump_view_count(self):
