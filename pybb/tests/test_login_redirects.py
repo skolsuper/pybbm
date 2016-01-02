@@ -1,9 +1,9 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
-from django.conf import settings
 from django.core.urlresolvers import reverse
-from django.http import Http404
 from django.test import TestCase, override_settings, RequestFactory
+from rest_framework.exceptions import NotFound
 
 from pybb import util
 from pybb.models import Category, Forum, Topic, Post
@@ -46,11 +46,11 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         category_view_func = CategoryView.as_view()
         request = self.factory.get(self.category.get_absolute_url())
         request.user = AnonymousUser()
-        self.assertRaises(Http404, category_view_func, request, pk=self.category.pk)
+        self.assertRaises(NotFound, category_view_func, request, pk=self.category.pk)
         # access with (unauthorized) user should get 404
         request.user = self.no_staff
         r = category_view_func(request, pk=self.category.pk)
-        self.assertRaises(Http404, category_view_func, request, pk=self.category.pk)
+        self.assertRaises(NotFound, category_view_func, request, pk=self.category.pk)
         # allowed user is allowed
         request.user = self.staff
         r = category_view_func(request, pk=self.category.pk)
@@ -61,10 +61,10 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         forum_view_func = ForumView.as_view()
         request = self.factory.get(self.forum.get_absolute_url())
         request.user = AnonymousUser()
-        self.assertRaises(Http404, forum_view_func, request, pk=self.forum.pk)
+        self.assertRaises(NotFound, forum_view_func, request, pk=self.forum.pk)
         # access with (unauthorized) user should get 404
         request.user = self.no_staff
-        self.assertRaises(Http404, forum_view_func, request, pk=self.forum.pk)
+        self.assertRaises(NotFound, forum_view_func, request, pk=self.forum.pk)
         # allowed user is allowed
         request.user = self.staff
         r = forum_view_func(request, pk=self.forum.pk)
@@ -75,10 +75,10 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         request = self.factory.get(self.topic.get_absolute_url())
         # access without user should be redirected
         request.user = AnonymousUser()
-        self.assertRaises(Http404, topic_view_func, request, pk=self.topic.pk)
+        self.assertRaises(NotFound, topic_view_func, request, pk=self.topic.pk)
         # access with (unauthorized) user should get 403 (forbidden)
         request.user = self.no_staff
-        self.assertRaises(Http404, topic_view_func, request, pk=self.topic.pk)
+        self.assertRaises(NotFound, topic_view_func, request, pk=self.topic.pk)
         # allowed user is allowed
         request.user = self.staff
         r = topic_view_func(request, pk=self.topic.id)

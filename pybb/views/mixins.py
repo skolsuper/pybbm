@@ -3,9 +3,9 @@
 from __future__ import unicode_literals
 
 from django.contrib.sites.shortcuts import get_current_site
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ValidationError
 from django.forms.utils import ErrorList
-from django.http import HttpResponseForbidden, HttpResponseRedirect
+from django.http import HttpResponseRedirect
 from django.utils.decorators import method_decorator
 
 from pybb import settings as defaults, compat
@@ -24,26 +24,6 @@ class PaginatorMixin(object):
         if pure_pagination:
             kwargs['request'] = self.request
         return Paginator(queryset, per_page, orphans, allow_empty_first_page, **kwargs)
-
-
-class RedirectToLoginMixin(object):
-    """ mixin which redirects to settings.LOGIN_URL if the view encounters an PermissionDenied exception
-        and the user is not authenticated. Views inheriting from this need to implement
-        get_login_redirect_url(), which returns the URL to redirect to after login (parameter "next")
-    """
-    def dispatch(self, request, *args, **kwargs):
-        try:
-            return super(RedirectToLoginMixin, self).dispatch(request, *args, **kwargs)
-        except PermissionDenied:
-            if not request.user.is_authenticated():
-                from django.contrib.auth.views import redirect_to_login
-                return redirect_to_login(self.get_login_redirect_url())
-            else:
-                return HttpResponseForbidden()
-
-    def get_login_redirect_url(self):
-        """ get the url to which we redirect after the user logs in. subclasses should override this """
-        return '/'
 
 
 class PybbFormsMixin(object):
