@@ -1,8 +1,10 @@
+from django.utils.translation import ugettext as _
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from pybb import compat
 from pybb.models import Topic, Post
+from pybb.settings import settings
 
 
 class DefaultSlugBuilder(object):
@@ -38,6 +40,9 @@ class TopicSerializer(serializers.ModelSerializer):
             if unique_slug_fail_count != 0:
                 num_chars = len(str(unique_slug_fail_count)) + 1
                 value['slug'] = value['slug'][:-num_chars]
+            if unique_slug_fail_count == settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT:
+                msg = _('After {limit} attempts, there is not any unique slug value for "{slug}"')
+                raise ValidationError(msg.format(limit=settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT, slug=value['slug']))
             unique_slug_fail_count += 1
             value['slug'] += '-{}'.format(unique_slug_fail_count)
             return self.run_validators(value, unique_slug_fail_count)

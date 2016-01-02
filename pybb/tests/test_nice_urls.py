@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 from django.test import override_settings
+from rest_framework import status
 from rest_framework.test import APITestCase
 
 from pybb import compat
@@ -75,15 +76,23 @@ class NiceUrlsTest(APITestCase):
         slug_nb = len(Topic.objects.filter(slug__startswith=self.topic.name)) - 1
         self.assertEqual('%s-%d' % (compat.slugify(topic_name), slug_nb), topic.slug)
 
-    @override_settings(PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT=20)
+    @override_settings(PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT=10)
     def test_fail_on_too_many_duplicate_slug(self):
-        try:
-            for _ in iter(range(20)):
-                Topic.objects.create(name='dolly', forum=self.forum, user=self.user)
-        except ValidationError as e:
-            self.fail('Should be able to create "dolly", "dolly-1", ..., "dolly-19".\n')
-        with self.assertRaises(ValidationError):
-            Topic.objects.create(name='dolly', forum=self.forum, user=self.user)
+        add_topic_url = reverse('pybb:topic_list')
+        values = {
+            'name': 'dolly',
+            'body': '[b]Test slug body[/b]',
+            'forum': self.forum.id,
+        }
+        for _ in range(11):  # Allow dolly, dolly-1, ... up to dolly-10 == 11 dollies allowed
+            response = self.client.post(add_topic_url, data=values, follow=True)
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        response = self.client.post(add_topic_url, data=values, follow=True)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.content,
+            '{"non_field_errors":["After 10 attempts, there is not any unique slug value for \\"dolly\\""]}'
+        )
 
     def test_long_duplicate_slug(self):
         long_name = 'abcde' * 51  # 255 symbols

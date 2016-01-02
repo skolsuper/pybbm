@@ -205,9 +205,8 @@ def create_or_check_slug(instance, model, **extra_filters):
         count += 1
 
         if count >= settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT:
-            msg = _('After %(limit)s attemps, there is not any unique slug value for "%(slug)s"')
-            raise ValidationError(msg % {'limit': settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT,
-                                         'slug': initial_slug})
+            msg = _('After {limit} attempts, there is not any unique slug value for "{slug}"')
+            raise ValidationError(msg.format(limit=settings.PYBB_NICE_URL_SLUG_DUPLICATE_LIMIT, slug=initial_slug))
 
         count_len = len(str(count))
 
