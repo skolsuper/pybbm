@@ -17,8 +17,7 @@ from rest_framework.generics import RetrieveAPIView, ListAPIView
 from pybb import util
 from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTracker
 from pybb.permissions import PermissionsMixin
-from pybb.serializers.forum import ForumSerializer
-from pybb.serializers.topic import TopicSerializer
+from pybb.serializers import ForumSerializer, TopicSerializer, CategorySerializer
 from pybb.settings import settings
 from pybb.views.mixins import RedirectToLoginMixin, PaginatorMixin
 
@@ -40,15 +39,9 @@ class IndexView(PermissionsMixin, generic.ListView):
         return self.perms.filter_categories(self.request.user, Category.objects.all())
 
 
-class CategoryView(PermissionsMixin, RedirectToLoginMixin, generic.DetailView):
+class CategoryView(PermissionsMixin, RetrieveAPIView):
 
-    template_name = 'pybb/index.html'
-    context_object_name = 'category'
-
-    def get_login_redirect_url(self):
-        # returns super.get_object as there is a conflict with the self.perms.in CategoryView.get_object
-        # Would raise a PermissionDenied and never redirect
-        return super(CategoryView, self).get_object().get_absolute_url()
+    serializer_class = CategorySerializer
 
     def get_queryset(self):
         return Category.objects.all()
@@ -58,12 +51,6 @@ class CategoryView(PermissionsMixin, RedirectToLoginMixin, generic.DetailView):
         if not self.perms.may_view_category(self.request.user, obj):
             raise PermissionDenied
         return obj
-
-    def get_context_data(self, **kwargs):
-        ctx = super(CategoryView, self).get_context_data(**kwargs)
-        ctx['category'].forums_accessed = self.perms.filter_forums(self.request.user, ctx['category'].forums.filter(parent=None))
-        ctx['categories'] = [ctx['category']]
-        return ctx
 
     def get(self, *args, **kwargs):
         if settings.PYBB_NICE_URL and (('id' in kwargs) or ('pk' in kwargs)):
