@@ -95,7 +95,7 @@ class TopicPollVoteView(PermissionsMixin, CreateAPIView):
 
 
 @api_view(['POST'])
-@permission_classes(IsAuthenticated)
+@permission_classes([IsAuthenticated])
 def topic_cancel_poll_vote(request, pk):
     topic = get_object_or_404(Topic, pk=pk)
     PollAnswerUser.objects.filter(user=request.user, poll_answer__topic_id=topic.id).delete()
@@ -104,7 +104,7 @@ def topic_cancel_poll_vote(request, pk):
 
 
 @api_view(['POST'])
-@permission_classes(IsAuthenticated)
+@permission_classes([IsAuthenticated])
 def delete_subscription(request, topic_id):
     perms = get_perms()
     topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=topic_id)
@@ -114,7 +114,7 @@ def delete_subscription(request, topic_id):
 
 
 @api_view(['POST'])
-@permission_classes(IsAuthenticated)
+@permission_classes([IsAuthenticated])
 def add_subscription(request, topic_id):
     perms = get_perms()
     topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=topic_id)
@@ -126,7 +126,7 @@ def add_subscription(request, topic_id):
 
 
 @api_view(['POST'])
-@permission_classes(IsAuthenticated)
+@permission_classes([IsAuthenticated])
 def mark_all_as_read(request):
     perms = get_perms()
     for forum in perms.filter_forums(request.user, Forum.objects.all()):
@@ -138,7 +138,7 @@ def mark_all_as_read(request):
 
 
 @api_view(['POST'])
-@permission_classes(IsAdminUser)
+@permission_classes([IsAdminUser])
 def block_user(request, username):
     perms = get_perms()
     user = get_object_or_404(User, **{username_field: username})
@@ -170,7 +170,7 @@ def block_user(request, username):
 
 
 @api_view(['POST'])
-@permission_classes(IsAdminUser)
+@permission_classes([IsAdminUser])
 def unblock_user(request, username):
     perms = get_perms()
     user = get_object_or_404(User, **{username_field: username})

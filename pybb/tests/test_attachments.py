@@ -6,19 +6,15 @@ import os
 
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from pybb.models import Post
-from pybb.settings import settings as pybb_settings
 from pybb.tests.utils import SharedTestModule
 
 
+@override_settings(PYBB_ATTACHMENT_ENABLE=True, PYBB_PREMODERATION=False)
 class AttachmentTest(TestCase, SharedTestModule):
     def setUp(self):
-        self.PYBB_ATTACHMENT_ENABLE = pybb_settings.PYBB_ATTACHMENT_ENABLE
-        pybb_settings.PYBB_ATTACHMENT_ENABLE = True
-        self.ORIG_PYBB_PREMODERATION = pybb_settings.PYBB_PREMODERATION
-        pybb_settings.PYBB_PREMODERATION = False
         self.file_name = os.path.join(os.path.dirname(__file__), '../static', 'pybb', 'img', 'attachment.png')
         self.create_user()
         self.create_initial()
@@ -47,7 +43,3 @@ class AttachmentTest(TestCase, SharedTestModule):
             del values['attachments-TOTAL_FORMS']
             with self.assertRaises(ValidationError):
                 self.client.post(add_post_url, values, follow=True)
-
-    def tearDown(self):
-        pybb_settings.PYBB_ATTACHMENT_ENABLE = self.PYBB_ATTACHMENT_ENABLE
-        pybb_settings.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
