@@ -105,11 +105,11 @@ class NiceUrlsTest(TestCase, SharedTestModule):
     def test_absolute_url(self):
         response = self.client.get(self.category.get_absolute_url())
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['category'], self.category)
+        self.assertEqual(response.data['name'], self.category.name)
         self.assertEqual('/c/%s/' % (self.category.slug), self.category.get_absolute_url())
         response = self.client.get(self.forum.get_absolute_url())
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['forum'], self.forum)
+        self.assertEqual(response.data['name'], self.forum.name)
         self.assertEqual(
             '/c/%s/%s/' % (self.category.slug, self.forum.slug),
             self.forum.get_absolute_url()

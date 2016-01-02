@@ -4,9 +4,6 @@ python:
   - "3.3"
   - "3.4"
 env:
-  - DJANGO="Django>=1.7,<1.8" DB=sqlite
-  - DJANGO="Django>=1.7,<1.8" DB=postgres
-  - DJANGO="Django>=1.7,<1.8" DB=mysql
   - DJANGO="Django>=1.8,<1.9" DB=sqlite
   - DJANGO="Django>=1.8,<1.9" DB=postgres
   - DJANGO="Django>=1.8,<1.9" DB=mysql

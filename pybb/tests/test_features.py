@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.urlresolvers import reverse
-from django.test import TestCase, skipUnlessDBFeature, Client
+from django.test import TestCase, skipUnlessDBFeature, Client, override_settings
 from lxml import html
 
 from pybb import util
@@ -20,15 +20,12 @@ from pybb.tests.utils import SharedTestModule, Profile
 User = get_user_model()
 
 
+@override_settings(PYBB_ENABLE_ANONYMOUS_POST=False, PYBB_PREMODERATION=False)
 class FeaturesTest(TestCase, SharedTestModule):
 
     @classmethod
     def setUpClass(cls):
         super(FeaturesTest, cls).setUpClass()
-        cls.ORIG_PYBB_ENABLE_ANONYMOUS_POST = pybb_settings.PYBB_ENABLE_ANONYMOUS_POST
-        cls.ORIG_PYBB_PREMODERATION = pybb_settings.PYBB_PREMODERATION
-        pybb_settings.PYBB_PREMODERATION = False
-        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = False
         cls.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
         cls.user.is_active = True
         cls.user.save()
@@ -41,8 +38,6 @@ class FeaturesTest(TestCase, SharedTestModule):
     def tearDownClass(cls):
         cls.user.delete()
         cls.category.delete()
-        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = cls.ORIG_PYBB_ENABLE_ANONYMOUS_POST
-        pybb_settings.PYBB_PREMODERATION = cls.ORIG_PYBB_PREMODERATION
         super(FeaturesTest, cls).tearDownClass()
 
     def setUp(self):

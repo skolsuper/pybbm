@@ -41,7 +41,7 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         cls.category.delete()
         super(HiddenCategoryTest, cls).tearDownClass()
 
-    def test_redirect_category(self):
+    def test_hidden_category(self):
         # access without user should get 404
         category_view_func = CategoryView.as_view()
         request = self.factory.get(self.category.get_absolute_url())
@@ -56,7 +56,7 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         r = category_view_func(request, pk=self.category.pk)
         self.assertEquals(r.status_code, 200)
 
-    def test_redirect_forum(self):
+    def test_hidden_forum(self):
         # access without user should get 404
         forum_view_func = ForumView.as_view()
         request = self.factory.get(self.forum.get_absolute_url())
@@ -70,7 +70,7 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         r = forum_view_func(request, pk=self.forum.pk)
         self.assertEquals(r.status_code, 200)
 
-    def test_redirect_topic(self):
+    def test_hidden_topic(self):
         topic_view_func = TopicView.as_view()
         request = self.factory.get(self.topic.get_absolute_url())
         # access without user should be redirected
@@ -84,7 +84,7 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         r = topic_view_func(request, pk=self.topic.id)
         self.assertEquals(r.status_code, 200)
 
-    def test_redirect_post(self):
+    def test_hidden_post(self):
         # access without user should be redirected
         r = self.get_with_user(self.post.get_absolute_url())
         self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % self.post.get_absolute_url())
@@ -96,7 +96,7 @@ class HiddenCategoryTest(TestCase, SharedTestModule):
         self.assertEquals(r.status_code, 302)
 
     @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False)
-    def test_redirect_topic_add(self):
+    def test_anon_topic_add(self):
         with self.settings(PYBB_PERMISSION_HANDLER='pybb.tests.RestrictEditingHandler'):
             # access without user should be redirected
             add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
