@@ -37,7 +37,7 @@ class UserPosts(PermissionsMixin, PaginatorMixin, ListAPIView):
 
     def get_queryset(self):
         qs = super(UserPosts, self).get_queryset()
-        user = get_object_or_404(User.objects.all(), **{User.USERNAME_FIELD: self.kwargs['username']})
+        user = get_object_or_404(User.objects.all(), **{username_field: self.kwargs['username']})
         qs = qs.filter(user=user)
         qs = self.perms.filter_posts(self.request.user, qs)
         qs = qs.order_by('-created', '-updated', '-id')
@@ -51,7 +51,7 @@ class UserTopics(PermissionsMixin, PaginatorMixin, ListAPIView):
 
     def get_queryset(self):
         qs = super(UserTopics, self).get_queryset()
-        user = get_object_or_404(User.objects.all(), **{User.USERNAME_FIELD: self.kwargs['username']})
+        user = get_object_or_404(User.objects.all(), **{username_field: self.kwargs['username']})
         qs = qs.filter(user=user)
         qs = self.perms.filter_topics(self.request.user, qs)
         qs = qs.order_by('-posts__updated', '-created', '-id')

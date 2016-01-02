@@ -2,40 +2,39 @@
 
 from __future__ import unicode_literals
 
-from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
-from django.core.urlresolvers import reverse
-from django.http import HttpResponseRedirect, HttpResponseBadRequest,\
-    HttpResponseForbidden
-from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.decorators import method_decorator
+from django.shortcuts import get_object_or_404
 from django.utils.translation import ugettext as _
-from django.views import generic
-from django.views.decorators.http import require_POST
-from django.views.generic.edit import ModelFormMixin
+from rest_framework import status
+from rest_framework.decorators import permission_classes, api_view
+from rest_framework.exceptions import PermissionDenied, ParseError
+from rest_framework.generics import CreateAPIView
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from pybb import util
 from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser
 from pybb.permissions import get_perms, PermissionsMixin
+from pybb.serializers import TopicSerializer
 from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
-from pybb.views.mixins import PybbFormsMixin
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD
 
 
-class TopicActionBaseView(PermissionsMixin, generic.View):
+class TopicActionBaseView(PermissionsMixin, APIView):
 
-    def get_topic(self):
+    def get_object(self):
         return get_object_or_404(Topic, pk=self.kwargs['pk'])
 
-    @method_decorator(login_required)
-    def get(self, *args, **kwargs):
-        self.topic = self.get_topic()
-        self.action(self.topic)
-        return HttpResponseRedirect(self.topic.get_absolute_url())
+    def post(self, *args, **kwargs):
+        topic = self.get_object()
+        self.action(topic)
+        serializer = TopicSerializer(topic)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def action(self, topic):
+        raise NotImplementedError
 
 
 class StickTopicView(TopicActionBaseView):
@@ -73,77 +72,61 @@ class OpenTopicView(TopicActionBaseView):
         topic.save()
 
 
-class TopicPollVoteView(PermissionsMixin, PybbFormsMixin, generic.UpdateView):
-    model = Topic
-    http_method_names = ['post', ]
+class TopicPollVoteView(PermissionsMixin, CreateAPIView):
 
-    @method_decorator(login_required)
-    def dispatch(self, request, *args, **kwargs):
-        return super(TopicPollVoteView, self).dispatch(request, *args, **kwargs)
+    permission_classes = (IsAuthenticated,)
+    queryset = Topic.objects.exclude(poll_type=Topic.POLL_TYPE_NONE)
 
-    def get_form_class(self):
-        return self.get_poll_form_class()
+    def post(self, request, *args, **kwargs):
+        topic = self.get_object()
+        if not self.perms.may_vote_in_topic(self.request.user, topic):
+            raise PermissionDenied
 
-    def get_form_kwargs(self):
-        kwargs = super(ModelFormMixin, self).get_form_kwargs()
-        kwargs['topic'] = self.object
-        return kwargs
+        if not pybb_topic_poll_not_voted(topic, self.request.user):
+            raise ParseError
 
-    def form_valid(self, form):
-        # already voted
-        if not self.perms.may_vote_in_topic(self.request.user, self.object) or \
-           not pybb_topic_poll_not_voted(self.object, self.request.user):
-            return HttpResponseForbidden()
+        answers = [PollAnswerUser(answer=answer, user=self.request.user) for answer in request.data['answers']]
+        PollAnswerUser.objects.bulk_create(answers)
+        serializer = TopicSerializer(topic)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-        answers = form.cleaned_data['answers']
-        for answer in answers:
-            # poll answer from another topic
-            if answer.topic != self.object:
-                return HttpResponseBadRequest()
-
-            PollAnswerUser.objects.create(poll_answer=answer, user=self.request.user)
-        return super(ModelFormMixin, self).form_valid(form)
-
-    def form_invalid(self, form):
-        return redirect(self.object)
-
-    def get_success_url(self):
-        return self.object.get_absolute_url()
+    def get_object(self):
+        return get_object_or_404(self.get_queryset(), pk=self.kwargs['pk'])
 
 
-@login_required
+@api_view(['POST'])
+@permission_classes(IsAuthenticated)
 def topic_cancel_poll_vote(request, pk):
     topic = get_object_or_404(Topic, pk=pk)
     PollAnswerUser.objects.filter(user=request.user, poll_answer__topic_id=topic.id).delete()
-    return HttpResponseRedirect(topic.get_absolute_url())
+    serializer = TopicSerializer(topic)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@login_required
+@api_view(['POST'])
+@permission_classes(IsAuthenticated)
 def delete_subscription(request, topic_id):
     perms = get_perms()
     topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=topic_id)
     topic.subscribers.remove(request.user)
-    return HttpResponseRedirect(topic.get_absolute_url())
+    serializer = TopicSerializer(topic)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@login_required
+@api_view(['POST'])
+@permission_classes(IsAuthenticated)
 def add_subscription(request, topic_id):
     perms = get_perms()
     topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=topic_id)
     if not perms.may_subscribe_topic(request.user, topic):
         raise PermissionDenied
     topic.subscribers.add(request.user)
-    return HttpResponseRedirect(topic.get_absolute_url())
+    serializer = TopicSerializer(topic)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@login_required
-def post_ajax_preview(request):
-    content = request.POST.get('data')
-    html = util._get_markup_formatter()(content)
-    return render(request, 'pybb/_markitup_preview.html', {'html': html})
-
-
-@login_required
+@api_view(['POST'])
+@permission_classes(IsAuthenticated)
 def mark_all_as_read(request):
     perms = get_perms()
     for forum in perms.filter_forums(request.user, Forum.objects.all()):
@@ -151,12 +134,11 @@ def mark_all_as_read(request):
         forum_mark.save()
     TopicReadTracker.objects.filter(user=request.user).delete()
     msg = _('All forums marked as read')
-    messages.success(request, msg, fail_silently=True)
-    return redirect(reverse('pybb:index'))
+    return Response({'message': msg}, status=status.HTTP_200_OK)
 
 
-@login_required
-@require_POST
+@api_view(['POST'])
+@permission_classes(IsAdminUser)
 def block_user(request, username):
     perms = get_perms()
     user = get_object_or_404(User, **{username_field: username})
@@ -184,12 +166,11 @@ def block_user(request, username):
                 pass
 
     msg = _('User successfully blocked')
-    messages.success(request, msg, fail_silently=True)
-    return redirect('pybb:index')
+    return Response({'message': msg}, status=status.HTTP_200_OK)
 
 
-@login_required
-@require_POST
+@api_view(['POST'])
+@permission_classes(IsAdminUser)
 def unblock_user(request, username):
     perms = get_perms()
     user = get_object_or_404(User, **{username_field: username})
@@ -198,5 +179,4 @@ def unblock_user(request, username):
     user.is_active = True
     user.save()
     msg = _('User successfully unblocked')
-    messages.success(request, msg, fail_silently=True)
-    return redirect('pybb:index')
+    return Response({'message': msg}, status=status.HTTP_200_OK)
