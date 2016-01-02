@@ -2,58 +2,45 @@
 
 from __future__ import unicode_literals
 
-import math
-
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.core.urlresolvers import reverse
-from django.http import Http404, HttpResponse
+from django.http import Http404
 from django.shortcuts import get_object_or_404
-from django.utils.decorators import method_decorator
-from django.views import generic
-from django.views.decorators.csrf import csrf_protect
-from rest_framework.generics import DestroyAPIView
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.generics import DestroyAPIView, CreateAPIView, UpdateAPIView, RetrieveAPIView
+from rest_framework.response import Response
 
 from pybb import settings as defaults, util
 from pybb.models import Forum, Topic, Post
 from pybb.permissions import PermissionsMixin
-from pybb.views.mixins import PostEditMixin, RedirectToLoginMixin
+from pybb.serializers import PostSerializer
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD
 
 
-class AddPostView(PostEditMixin, generic.CreateView):
+class CreatePostView(PermissionsMixin, CreateAPIView):
 
-    template_name = 'pybb/add_post.html'
+    serializer_class = PostSerializer
 
-    @method_decorator(csrf_protect)
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.is_authenticated():
-            self.user = request.user
-        else:
-            if defaults.settings.PYBB_ENABLE_ANONYMOUS_POST:
-                self.user, new = User.objects.get_or_create(**{username_field: defaults.settings.PYBB_ANONYMOUS_USERNAME})
-            else:
-                from django.contrib.auth.views import redirect_to_login
-                return redirect_to_login(request.get_full_path())
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        if not (request.user.is_authenticated() or defaults.settings.PYBB_ENABLE_ANONYMOUS_POST):
+            raise PermissionDenied
 
-        self.forum = None
-        self.topic = None
         if 'forum_id' in kwargs:
-            self.forum = get_object_or_404(self.perms.filter_forums(request.user, Forum.objects.all()), pk=kwargs['forum_id'])
-            if not self.perms.may_create_topic(self.user, self.forum):
+            forum = get_object_or_404(self.perms.filter_forums(request.user, Forum.objects.all()), pk=kwargs['forum_id'])
+            if not self.perms.may_create_topic(request.user, forum):
                 raise PermissionDenied
         elif 'topic_id' in kwargs:
-            self.topic = get_object_or_404(self.perms.filter_topics(request.user, Topic.objects.all()), pk=kwargs['topic_id'])
-            if not self.perms.may_create_post(self.user, self.topic):
+            topic = get_object_or_404(self.perms.filter_topics(request.user, Topic.objects.all()), pk=kwargs['topic_id'])
+            if not self.perms.may_create_post(request.user, topic):
                 raise PermissionDenied
 
-            self.quote = ''
-            if 'quote_id' in request.GET:
+            if 'quote_id' in request.query_params:
                 try:
-                    quote_id = int(request.GET.get('quote_id'))
+                    quote_id = int(request.query_params.get('quote_id'))
                 except TypeError:
                     raise Http404
                 else:
@@ -61,92 +48,48 @@ class AddPostView(PostEditMixin, generic.CreateView):
                     if not self.perms.may_view_post(request.user, post):
                         raise PermissionDenied
                     profile = util.get_pybb_profile(post.user)
-                    self.quote = util._get_markup_quoter(defaults.settings.PYBB_MARKUP)(post.body, profile.get_display_name())
+                    data['quote'] = util._get_markup_quoter(defaults.settings.PYBB_MARKUP)(post.body, profile.get_display_name())
 
-                if self.quote and request.is_ajax():
-                    return HttpResponse(self.quote)
-        return super(AddPostView, self).dispatch(request, *args, **kwargs)
-
-    def get_form_kwargs(self):
-        ip = self.request.META.get('REMOTE_ADDR', '')
-        form_kwargs = super(AddPostView, self).get_form_kwargs()
-        form_kwargs.update(dict(topic=self.topic, forum=self.forum, user=self.user,
-                           ip=ip, initial={}))
-        if getattr(self, 'quote', None):
-            form_kwargs['initial']['body'] = self.quote
-        form_kwargs['may_create_poll'] = self.perms.may_create_poll(self.user)
-        form_kwargs['may_edit_topic_slug'] = self.perms.may_edit_topic_slug(self.user)
-        return form_kwargs
-
-    def get_context_data(self, **kwargs):
-        ctx = super(AddPostView, self).get_context_data(**kwargs)
-        ctx['forum'] = self.forum
-        ctx['topic'] = self.topic
-        return ctx
-
-    def get_success_url(self):
-        if (not self.request.user.is_authenticated()) and defaults.settings.PYBB_PREMODERATION:
-            return reverse('pybb:index')
-        return self.object.get_absolute_url()
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
-class EditPostView(PostEditMixin, generic.UpdateView):
+class UpdatePostView(PermissionsMixin, UpdateAPIView):
 
-    model = Post
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
 
-    context_object_name = 'post'
-    template_name = 'pybb/edit_post.html'
-
-    @method_decorator(login_required)
-    @method_decorator(csrf_protect)
-    def dispatch(self, request, *args, **kwargs):
-        return super(EditPostView, self).dispatch(request, *args, **kwargs)
-
-    def get_form_kwargs(self):
-        form_kwargs = super(EditPostView, self).get_form_kwargs()
-        form_kwargs['may_create_poll'] = self.perms.may_create_poll(self.request.user)
-        return form_kwargs
-
-    def get_object(self, queryset=None):
-        post = super(EditPostView, self).get_object(queryset)
+    def get_object(self):
+        post = super(UpdatePostView, self).get_object()
         if not self.perms.may_edit_post(self.request.user, post):
             raise PermissionDenied
         return post
 
 
-class PostView(PermissionsMixin, RedirectToLoginMixin, generic.RedirectView):
+class PostView(PermissionsMixin, RetrieveAPIView):
 
-    permanent = False
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
 
-    def dispatch(self, request, *args, **kwargs):
-        self.post = self.get_post(**kwargs)
-        return super(PostView, self).dispatch(request, *args, **kwargs)
-
-    def get_login_redirect_url(self):
-        return self.post.get_absolute_url()
-
-    def get_redirect_url(self, **kwargs):
-        if not self.perms.may_view_post(self.request.user, self.post):
+    def get_object(self):
+        post = super(PostView, self).get_object()
+        if not self.perms.may_view_post(self.request.user, post):
             raise PermissionDenied
-        count = self.post.topic.posts.filter(created__lt=self.post.created).count() + 1
-        page = math.ceil(count / float(defaults.settings.PYBB_TOPIC_PAGE_SIZE))
-        return '%s?page=%d#post-%d' % (self.post.topic.get_absolute_url(), page, self.post.id)
-
-    def get_post(self, **kwargs):
-        return get_object_or_404(Post, pk=kwargs['pk'])
+        return post
 
 
-class ModeratePost(PermissionsMixin, generic.RedirectView):
-
-    permanent = False
-
-    def get_redirect_url(self, **kwargs):
-        post = get_object_or_404(Post, pk=self.kwargs['pk'])
-        if not self.perms.may_moderate_topic(self.request.user, post.topic):
-            raise PermissionDenied
-        post.on_moderation = False
-        post.save()
-        return post.get_absolute_url()
+@api_view
+def moderate_post(self, request, *args, **kwargs):
+    post = get_object_or_404(Post, pk=kwargs['pk'])
+    if not self.perms.may_moderate_topic(request.user, post.topic):
+        raise PermissionDenied
+    post.on_moderation = False
+    post.save()
+    headers = {'Location': post.get_absolute_url()}
+    return Response(status=status.HTTP_200_OK, headers=headers)
 
 
 class DeletePostView(PermissionsMixin, DestroyAPIView):

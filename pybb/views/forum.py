@@ -19,7 +19,7 @@ from pybb.settings import settings
 from pybb.views.mixins import PaginatorMixin
 
 
-class IndexView(PermissionsMixin, ListAPIView):
+class CategoryList(PermissionsMixin, ListAPIView):
 
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
@@ -45,9 +45,8 @@ class CategoryView(PermissionsMixin, RetrieveAPIView):
         return super(CategoryView, self).get(*args, **kwargs)
 
 
-class ForumView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
+class ForumView(PermissionsMixin, RetrieveAPIView):
 
-    paginate_by = settings.PYBB_FORUM_PAGE_SIZE
     queryset = Forum.objects.all()
     serializer_class = ForumSerializer
 
@@ -84,7 +83,6 @@ class LatestTopicsView(PermissionsMixin, PaginatorMixin, ListAPIView):
 
 
 class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
-    paginate_by = settings.PYBB_TOPIC_PAGE_SIZE
     queryset = Topic.objects.annotate(Count('posts'))
     serializer_class = TopicSerializer
 

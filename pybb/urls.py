@@ -4,10 +4,10 @@ from __future__ import unicode_literals
 from django.conf.urls import url
 
 from pybb.feeds import LastPosts, LastTopics
-from pybb.views import IndexView, CategoryView, ForumView, TopicView,\
-    AddPostView, EditPostView, UserView, PostView, ProfileEditView,\
+from pybb.views import CategoryList, CategoryView, ForumView, TopicView,\
+    CreatePostView, UpdatePostView, UserView, PostView, ProfileEditView,\
     DeletePostView, StickTopicView, UnstickTopicView, CloseTopicView,\
-    OpenTopicView, ModeratePost, TopicPollVoteView, LatestTopicsView,\
+    OpenTopicView, moderate_post, TopicPollVoteView, LatestTopicsView,\
     UserTopics, UserPosts, topic_cancel_poll_vote, block_user, unblock_user,\
     delete_subscription, add_subscription, post_ajax_preview, mark_all_as_read
 
@@ -17,7 +17,7 @@ urlpatterns = [
     url('^feeds/posts/$', LastPosts(), name='feed_posts'),
     url('^feeds/topics/$', LastTopics(), name='feed_topics'),
     # Index, Category, Forum
-    url('^$', IndexView.as_view(), name='index'),
+    url('^$', CategoryList.as_view(), name='index'),
     url('^category/(?P<pk>\d+)/$', CategoryView.as_view(), name='category'),
     url('^forum/(?P<pk>\d+)/$', ForumView.as_view(), name='forum'),
 
@@ -42,14 +42,14 @@ urlpatterns = [
     url('^topic/latest/$', LatestTopicsView.as_view(), name='topic_latest'),
 
     # Add topic/post
-    url('^forum/(?P<forum_id>\d+)/topic/add/$', AddPostView.as_view(), name='add_topic'),
-    url('^topic/(?P<topic_id>\d+)/post/add/$', AddPostView.as_view(), name='add_post'),
+    url('^forum/(?P<forum_id>\d+)/topic/add/$', CreatePostView.as_view(), name='add_topic'),
+    url('^topic/(?P<topic_id>\d+)/post/add/$', CreatePostView.as_view(), name='add_post'),
 
     # Post
     url('^post/(?P<pk>\d+)/$', PostView.as_view(), name='post'),
-    url('^post/(?P<pk>\d+)/edit/$', EditPostView.as_view(), name='edit_post'),
+    url('^post/(?P<pk>\d+)/edit/$', UpdatePostView.as_view(), name='edit_post'),
     url('^post/(?P<pk>\d+)/delete/$', DeletePostView.as_view(), name='delete_post'),
-    url('^post/(?P<pk>\d+)/moderate/$', ModeratePost.as_view(), name='moderate_post'),
+    url('^post/(?P<pk>\d+)/moderate/$', moderate_post, name='moderate_post'),
 
     # Attachment
     # url('^attachment/(\w+)/$', 'show_attachment', name='pybb_attachment'),
