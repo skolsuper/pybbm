@@ -53,7 +53,7 @@ class Migration(migrations.Migration):
                 ('headline', models.TextField(null=True, verbose_name='Headline', blank=True)),
                 ('slug', models.SlugField(max_length=255, verbose_name='Slug')),
                 ('category', models.ForeignKey(related_name='forums', verbose_name='Category', to='pybb.Category')),
-                ('moderators', models.ManyToManyField(to=settings.AUTH_USER_MODEL, null=True, verbose_name='Moderators', blank=True)),
+                ('moderators', models.ManyToManyField(to=settings.AUTH_USER_MODEL, verbose_name='Moderators', blank=True)),
                 ('parent', models.ForeignKey(related_name='child_forums', verbose_name='Parent forum', blank=True, to='pybb.Forum', null=True)),
             ],
             options={
@@ -104,8 +104,6 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('body', models.TextField(verbose_name='Message')),
-                ('body_html', models.TextField(verbose_name='HTML version')),
-                ('body_text', models.TextField(verbose_name='Text version')),
                 ('created', models.DateTimeField(auto_now_add=True, verbose_name='Created', db_index=True)),
                 ('updated', models.DateTimeField(default=django.utils.timezone.now, verbose_name='Updated', blank=True)),
                 ('user_ip', models.IPAddressField(default='0.0.0.0', verbose_name='User IP', blank=True)),
@@ -148,7 +146,7 @@ class Migration(migrations.Migration):
                 ('poll_type', models.IntegerField(default=0, verbose_name='Poll type', choices=[(0, 'None'), (1, 'Single answer'), (2, 'Multiple answers')])),
                 ('poll_question', models.TextField(null=True, verbose_name='Poll question', blank=True)),
                 ('slug', models.SlugField(max_length=255, verbose_name='Slug')),
-                ('forum', models.ForeignKey(related_name='topics', verbose_name='Forum', to='pybb.Forum')),
+                ('forum', models.ForeignKey(related_name='+', verbose_name='Forum', to='pybb.Forum')),
             ],
             options={
                 'ordering': ['-created'],
@@ -192,7 +190,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='post',
             name='user',
-            field=models.ForeignKey(related_name='posts', verbose_name='User', to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(related_name='posts', verbose_name='User', to=settings.AUTH_USER_MODEL, null=True),
         ),
         migrations.AddField(
             model_name='pollanswer',
@@ -207,7 +205,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='attachment',
             name='post',
-            field=models.ForeignKey(related_name='attachments', verbose_name='Post', to='pybb.Post'),
+            field=models.OneToOneField(related_name='attachment', verbose_name='Post', to='pybb.Post'),
         ),
         migrations.AlterUniqueTogether(
             name='topicreadtracker',

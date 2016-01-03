@@ -15,7 +15,7 @@ class Attachment(models.Model):
         verbose_name_plural = _('Attachments')
         app_label = 'pybb'
 
-    post = models.ForeignKey(Post, verbose_name=_('Post'), related_name='attachments')
+    post = models.OneToOneField(Post, verbose_name=_('Post'), related_name='attachment')
     size = models.IntegerField(_('Size'))
     file = models.FileField(_('File'),
                             upload_to=FilePathGenerator(to=settings.PYBB_ATTACHMENT_UPLOAD_TO))

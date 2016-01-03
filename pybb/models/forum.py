@@ -30,7 +30,7 @@ class Forum(models.Model):
     name = models.CharField(_('Name'), max_length=80)
     position = models.IntegerField(_('Position'), blank=True, default=0)
     description = models.TextField(_('Description'), blank=True)
-    moderators = models.ManyToManyField(django_settings.AUTH_USER_MODEL, blank=True, null=True, verbose_name=_('Moderators'))
+    moderators = models.ManyToManyField(django_settings.AUTH_USER_MODEL, blank=True, verbose_name=_('Moderators'))
     hidden = models.BooleanField(_('Hidden'), blank=False, null=False, default=False)
     readed_by = models.ManyToManyField(django_settings.AUTH_USER_MODEL, through='ForumReadTracker', related_name='readed_forums')
     headline = models.TextField(_('Headline'), blank=True, null=True)
