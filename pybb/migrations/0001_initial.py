@@ -16,18 +16,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Attachment',
-            fields=[
-                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('size', models.IntegerField(verbose_name='Size')),
-                ('file', models.FileField(upload_to=pybb.util.FilePathGenerator(to=b'pybb_upload/attachments'), verbose_name='File')),
-            ],
-            options={
-                'verbose_name': 'Attachment',
-                'verbose_name_plural': 'Attachments',
-            },
-        ),
-        migrations.CreateModel(
             name='Category',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
@@ -108,6 +96,7 @@ class Migration(migrations.Migration):
                 ('updated', models.DateTimeField(default=django.utils.timezone.now, verbose_name='Updated', blank=True)),
                 ('user_ip', models.IPAddressField(default='0.0.0.0', verbose_name='User IP', blank=True)),
                 ('on_moderation', models.BooleanField(default=False, verbose_name='On moderation')),
+                ('attachment', models.FileField(upload_to=pybb.util.FilePathGenerator(to=b'pybb_upload/attachments'), verbose_name='Attachment', blank=True)),
             ],
             options={
                 'ordering': ['created'],
@@ -201,11 +190,6 @@ class Migration(migrations.Migration):
             model_name='forum',
             name='readed_by',
             field=models.ManyToManyField(related_name='readed_forums', through='pybb.ForumReadTracker', to=settings.AUTH_USER_MODEL),
-        ),
-        migrations.AddField(
-            model_name='attachment',
-            name='post',
-            field=models.OneToOneField(related_name='attachment', verbose_name='Post', to='pybb.Post'),
         ),
         migrations.AlterUniqueTogether(
             name='topicreadtracker',

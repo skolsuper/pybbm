@@ -3,11 +3,10 @@ from __future__ import unicode_literals
 
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from django.core.urlresolvers import reverse
 from django.utils.translation import ugettext_lazy as _
 
 from pybb import util
-from pybb.models import Category, Forum, Topic, Post, Profile, Attachment, PollAnswer
+from pybb.models import Category, Forum, Topic, Post, Profile, PollAnswer
 
 username_field = get_user_model().USERNAME_FIELD
 
@@ -139,25 +138,10 @@ class ProfileAdmin(admin.ModelAdmin):
         return profile.user.posts.count()
 
 
-class AttachmentAdmin(admin.ModelAdmin):
-    list_display = ['file', 'size', 'admin_view_post', 'admin_edit_post']
-
-    def admin_view_post(self, obj):
-        return '<a href="%s">view</a>' % obj.post.get_absolute_url()
-    admin_view_post.allow_tags = True
-    admin_view_post.short_description = _('View post')
-
-    def admin_edit_post(self, obj):
-        return '<a href="%s">edit</a>' % reverse('admin:pybb_post_change', args=[obj.post.pk])
-    admin_edit_post.allow_tags = True
-    admin_edit_post.short_description = _('Edit post')
-
-
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(Forum, ForumAdmin)
 admin.site.register(Topic, TopicAdmin)
 admin.site.register(Post, PostAdmin)
-admin.site.register(Attachment, AttachmentAdmin)
 
 if util.get_pybb_profile_model() == Profile:
     admin.site.register(Profile, ProfileAdmin)

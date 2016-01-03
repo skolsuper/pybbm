@@ -8,7 +8,9 @@ from django.utils.encoding import python_2_unicode_compatible
 from django.utils.timezone import now as tznow
 from django.utils.translation import ugettext_lazy as _
 
+from pybb.settings import settings as pybb_settings
 from pybb.models.topic import Topic
+from pybb.util import FilePathGenerator
 
 
 @python_2_unicode_compatible
@@ -27,6 +29,7 @@ class Post(models.Model):
     updated = models.DateTimeField(_('Updated'), blank=True, default=tznow)
     user_ip = models.IPAddressField(_('User IP'), blank=True, default='0.0.0.0')
     on_moderation = models.BooleanField(_('On moderation'), default=False)
+    attachment = models.FileField(_('Attachment'), blank=True, upload_to=FilePathGenerator(to=pybb_settings.PYBB_ATTACHMENT_UPLOAD_TO))
 
     def summary(self):
         limit = 50

@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 
 import os
 
-from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 from django.test import override_settings
 from rest_framework.test import APITestCase
@@ -28,6 +27,6 @@ class AttachmentTest(APITestCase, SharedTestModule):
             values = {'topic': self.topic.id, 'body': 'test attachment', 'attachment': fp}
             response = self.client.post(add_post_url, values, follow=True)
         self.assertEqual(response.status_code, 201)
-        self.assertIn('attachment_url', response.data)
+        self.assertIn('attachment', response.data)
         post = Post.objects.get(body='test attachment')
         self.assertIsNotNone(post.attachment)
