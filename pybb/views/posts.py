@@ -6,12 +6,12 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotAuthenticated
 from rest_framework.generics import DestroyAPIView, CreateAPIView, UpdateAPIView, RetrieveAPIView
 from rest_framework.response import Response
 
-from pybb import settings as defaults, util
-from pybb.models import Forum, Topic, Post
+from pybb import settings as defaults
+from pybb.models import Topic, Post
 from pybb.permissions import PermissionsMixin
 from pybb.serializers import PostSerializer
 
@@ -23,31 +23,20 @@ class CreatePostView(PermissionsMixin, CreateAPIView):
 
     serializer_class = PostSerializer
 
+    def get_queryset(self):
+        return self.perms.filter_topics(self.request.user, Topic.objects.all())
+
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
-        if not (request.user.is_authenticated() or defaults.settings.PYBB_ENABLE_ANONYMOUS_POST):
+
+        if request.user.is_authenticated():
+            data['user'] = request.user.id
+        elif not defaults.settings.PYBB_ENABLE_ANONYMOUS_POST:
+            raise NotAuthenticated
+
+        topic = get_object_or_404(self.get_queryset(), pk=data['topic'])
+        if not self.perms.may_create_post(request.user, topic):
             raise PermissionDenied
-
-        if 'forum_id' in kwargs:
-            forum = get_object_or_404(self.perms.filter_forums(request.user, Forum.objects.all()), pk=kwargs['forum_id'])
-            if not self.perms.may_create_topic(request.user, forum):
-                raise PermissionDenied
-        elif 'topic_id' in kwargs:
-            topic = get_object_or_404(self.perms.filter_topics(request.user, Topic.objects.all()), pk=kwargs['topic_id'])
-            if not self.perms.may_create_post(request.user, topic):
-                raise PermissionDenied
-
-            if 'quote_id' in request.query_params:
-                try:
-                    quote_id = int(request.query_params.get('quote_id'))
-                except TypeError:
-                    raise NotFound
-                else:
-                    post = get_object_or_404(Post, pk=quote_id)
-                    if not self.perms.may_view_post(request.user, post):
-                        raise PermissionDenied
-                    profile = util.get_pybb_profile(post.user)
-                    data['quote'] = util._get_markup_quoter(defaults.settings.PYBB_MARKUP)(post.body, profile.get_display_name())
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)

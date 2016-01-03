@@ -21,7 +21,8 @@ class Post(models.Model):
 
     body = models.TextField(_('Message'))
     topic = models.ForeignKey(Topic, related_name='posts', verbose_name=_('Topic'))
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='posts', verbose_name=_('User'))
+    user = models.ForeignKey(
+            settings.AUTH_USER_MODEL, null=True, related_name='posts', verbose_name=_('User'))
     created = models.DateTimeField(_('Created'), blank=True, db_index=True, auto_now_add=True)
     updated = models.DateTimeField(_('Updated'), blank=True, default=tznow)
     user_ip = models.IPAddressField(_('User IP'), blank=True, default='0.0.0.0')

@@ -41,15 +41,12 @@ urlpatterns = [
     url('^topics/(?P<pk>\d+)/cancel_poll_vote/$', topic_cancel_poll_vote, name='topic_cancel_poll_vote'),
     url('^topics/$', TopicsView.as_view(), name='topic_list'),
 
-    # Add topic/post
-    url('^forum/(?P<forum_id>\d+)/topic/add/$', CreatePostView.as_view(), name='add_topic'),
-    url('^topic/(?P<topic_id>\d+)/post/add/$', CreatePostView.as_view(), name='add_post'),
-
     # Post
-    url('^post/(?P<pk>\d+)/$', PostView.as_view(), name='post'),
-    url('^post/(?P<pk>\d+)/edit/$', UpdatePostView.as_view(), name='edit_post'),
-    url('^post/(?P<pk>\d+)/delete/$', DeletePostView.as_view(), name='delete_post'),
-    url('^post/(?P<pk>\d+)/moderate/$', moderate_post, name='moderate_post'),
+    url('^posts/$', CreatePostView.as_view(), name='add_post'),
+    url('^posts/(?P<pk>\d+)/$', PostView.as_view(), name='post'),
+    url('^posts/(?P<pk>\d+)/edit/$', UpdatePostView.as_view(), name='edit_post'),
+    url('^posts/(?P<pk>\d+)/delete/$', DeletePostView.as_view(), name='delete_post'),
+    url('^posts/(?P<pk>\d+)/moderate/$', moderate_post, name='moderate_post'),
 
     # Attachment
     # url('^attachment/(\w+)/$', 'show_attachment', name='pybb_attachment'),

@@ -6,28 +6,23 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.cache import cache
 from django.core.urlresolvers import reverse
-from django.test import TestCase
+from django.test import override_settings
+from rest_framework.test import APITestCase
 
 from pybb import util
 from pybb.models import Category, Forum, Topic, Post
 from pybb.settings import settings as pybb_settings
-from pybb.tests.utils import SharedTestModule
 
 User = get_user_model()
 
 
-class AnonymousTest(TestCase, SharedTestModule):
+@override_settings(PYBB_ENABLE_ANONYMOUS_POST=True, PYBB_ANONYMOUS_USERNAME='Anonymous')
+class AnonymousTest(APITestCase):
 
     @classmethod
     def setUpClass(cls):
         super(AnonymousTest, cls).setUpClass()
-        cls.ORIG_PYBB_ENABLE_ANONYMOUS_POST = pybb_settings.PYBB_ENABLE_ANONYMOUS_POST
-        cls.ORIG_PYBB_ANONYMOUS_USERNAME = pybb_settings.PYBB_ANONYMOUS_USERNAME
-        cls.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER
-
-        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = True
-        pybb_settings.PYBB_ANONYMOUS_USERNAME = 'Anonymous'
-        cls.user = User.objects.create_user('Anonymous', 'Anonymous@localhost', 'Anonymous')
+        cls.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
         cls.category = Category.objects.create(name='foo')
         cls.forum = Forum.objects.create(name='xfoo', description='bar', category=cls.category)
         cls.topic = Topic.objects.create(name='etopic', forum=cls.forum, user=cls.user)
@@ -37,24 +32,38 @@ class AnonymousTest(TestCase, SharedTestModule):
 
     @classmethod
     def tearDownClass(cls):
-        pybb_settings.PYBB_ENABLE_ANONYMOUS_POST = cls.ORIG_PYBB_ENABLE_ANONYMOUS_POST
-        pybb_settings.PYBB_ANONYMOUS_USERNAME = cls.ORIG_PYBB_ANONYMOUS_USERNAME
-        pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = cls.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER
+        cls.user.delete()
+        cls.category.delete()
         super(AnonymousTest, cls).tearDownClass()
 
     def setUp(self):
         cache.clear()
 
     def test_anonymous_posting(self):
-        post_url = reverse('pybb:add_post', kwargs={'topic_id': self.topic.id})
-        response = self.client.get(post_url)
-        values = self.get_form_values(response)
-        values['body'] = 'test anonymous'
+        self.client.force_authenticate()
+        post_url = reverse('pybb:add_post')
+        values = {
+            'topic': self.topic.id,
+            'body': 'test anonymous'
+        }
         response = self.client.post(post_url, values, follow=True)
-        self.assertEqual(response.status_code, 200,
+        self.assertEqual(response.status_code, 201,
                          'Received status code {0}. Url was: {1}'.format(response.status_code, post_url))
-        self.assertEqual(len(Post.objects.filter(body='test anonymous')), 1)
-        self.assertEqual(Post.objects.get(body='test anonymous').user, self.user)
+        self.assertEqual(Post.objects.filter(body='test anonymous').count(), 1)
+        self.assertIsNone(Post.objects.get(body='test anonymous').user)
+
+    @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False)
+    def test_no_anonymous_posting(self):
+        self.client.force_authenticate()
+        post_url = reverse('pybb:add_post')
+        values = {
+            'topic': self.topic.id,
+            'body': 'test anonymous'
+        }
+        response = self.client.post(post_url, values, follow=True)
+        self.assertIn(response.status_code, (401, 403),
+                      'Received status code {0}. Url was: {1}'.format(response.status_code, post_url))
+        self.assertEqual(Post.objects.filter(body='test anonymous').count(), 0)
 
     def test_anonymous_cache_topic_views(self):
         self.assertNotIn(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id), cache)

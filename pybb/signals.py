@@ -17,7 +17,7 @@ topic_updated = Signal(providing_args=['post', 'request'])
 
 
 def post_saved(instance, **kwargs):
-    if kwargs['created']:
+    if kwargs['created'] and instance.user is not None:
         perms = get_perms()
         if not defaults.settings.PYBB_DISABLE_SUBSCRIPTIONS and util.get_pybb_profile(instance.user).autosubscribe and \
                 perms.may_subscribe_topic(instance.user, instance.topic):
