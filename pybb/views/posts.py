@@ -38,6 +38,7 @@ class CreatePostView(PermissionsMixin, CreateAPIView):
         if not self.perms.may_create_post(request.user, topic):
             raise PermissionDenied
 
+        data['user_ip'] = request.META['REMOTE_ADDR']
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
