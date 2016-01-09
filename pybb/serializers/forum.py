@@ -7,5 +7,4 @@ class ForumSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Forum
-        fields = ('category', 'parent', 'name', 'position', 'description', 'moderators', 'hidden', 'readed_by',
-                  'headline', 'slug')
+        fields = ('category', 'parent', 'name', 'position', 'description', 'moderators', 'hidden', 'headline', 'slug')

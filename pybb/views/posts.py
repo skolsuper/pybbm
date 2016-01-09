@@ -90,3 +90,10 @@ class DeletePostView(PermissionsMixin, DestroyAPIView):
         if not self.perms.may_moderate_topic(self.request.user, topic):
             raise PermissionDenied
         return post
+
+    def perform_destroy(self, instance):
+        if instance.topic.head == instance:
+            instance.topic.delete()
+        else:
+            instance.delete()
+
