@@ -31,6 +31,11 @@ class FeaturesTest(APITestCase):
         Forum.objects.create(name='xfoo1', description='bar1', category=category, parent=forum)
         url = reverse('pybb:index')
         response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'foo')
+        self.assertEqual(len(response.data[0]['forums']), 2)
 
     def test_forum_page(self):
         # Check forum page
@@ -45,8 +50,6 @@ class FeaturesTest(APITestCase):
         Forum.objects.create(name='xfoo1', description='bar1', category=category, parent=forum)
         response = self.client.get(category.get_absolute_url())
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, forum.get_absolute_url())
-        self.assertEqual(len(response.context['object'].forums_accessed), 1)
 
     def test_profile_language_default(self):
         user = User.objects.create_user(username='user2', password='user2', email='user2@example.com')
