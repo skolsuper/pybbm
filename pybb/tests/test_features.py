@@ -857,23 +857,23 @@ class FeaturesTest(APITestCase):
 
         client.force_authenticate(user2)
         subscribe_url = reverse('pybb:add_subscription', args=[topic.id])
-        response = client.get(topic.get_absolute_url())
-        subscribe_links = html.fromstring(response.content).xpath('//a[@href="%s"]' % subscribe_url)
-        self.assertEqual(len(subscribe_links), 1)
         response = client.get(subscribe_url, follow=True)
+        self.assertEqual(response.status_code, 405, 'GET requests should not change subscriptions')
+
+        response = client.post(subscribe_url, follow=True)
         self.assertEqual(response.status_code, 200)
 
         topic.subscribers.add(user3)
 
         # create a new reply (with another user)
         self.client.force_authenticate(superuser)
-        add_post_url = reverse('pybb:add_post', args=[topic.id])
-        response = self.client.get(add_post_url)
-        values = self.get_form_values(response)
-        values['body'] = 'test subscribtion юникод'
+        add_post_url = reverse('pybb:add_post')
+        values = {
+            'body': 'test subscribtion юникод',
+            'topic': topic.id
+        }
         response = self.client.post(add_post_url, values, follow=True)
-        self.assertEqual(response.status_code, 200)
-        new_post = Post.objects.order_by('-id')[0]
+        self.assertEqual(response.status_code, 201)
 
         # there should be no email in the outbox
         self.assertEqual(len(mail.outbox), 0)
@@ -988,22 +988,3 @@ class FeaturesTest(APITestCase):
         self.assertEqual(len(latest_topics), 5)
         self.assertEqual(latest_topics[0].body, 'post9')
         self.assertEqual(latest_topics[4].body, 'post5')
-
-    def test_multiple_objects_returned(self):
-        """
-        see issue #87: https://github.com/hovel/pybbm/issues/87
-        """
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic', user=user, forum=forum)
-        topic.on_moderation = False
-        topic.save()
-        self.assertEqual(topic.user.id, user.id)
-        user1 = User.objects.create_user('geyser', 'geyser@localhost', 'geyser')
-        self.topic.forum.moderators.add(user)
-        self.topic.forum.moderators.add(user1)
-
-        self.login_client()
-        response = self.client.get(reverse('pybb:add_post', kwargs={'topic_id': topic.id}))
-        self.assertEqual(response.status_code, 200)

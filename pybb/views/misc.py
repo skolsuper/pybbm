@@ -107,9 +107,9 @@ def topic_cancel_poll_vote(request, pk):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def delete_subscription(request, topic_id):
+def delete_subscription(request, pk):
     perms = get_perms()
-    topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=topic_id)
+    topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=pk)
     topic.subscribers.remove(request.user)
     serializer = TopicSerializer(topic)
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -117,9 +117,9 @@ def delete_subscription(request, topic_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def add_subscription(request, topic_id):
+def add_subscription(request, pk):
     perms = get_perms()
-    topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=topic_id)
+    topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=pk)
     if not perms.may_subscribe_topic(request.user, topic):
         raise PermissionDenied
     topic.subscribers.add(request.user)

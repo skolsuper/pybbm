@@ -31,6 +31,7 @@ urlpatterns = [
     url('^profile/edit/$', ProfileEditView.as_view(), name='edit_profile'),
 
     # Topic
+    url('^topics/$', TopicsView.as_view(), name='topic_list'),
     url('^topics/(?P<pk>\d+)/$', TopicView.as_view(), name='topic'),
     url('^topics/(?P<pk>\d+)/stick/$', StickTopicView.as_view(), name='stick_topic'),
     url('^topics/(?P<pk>\d+)/unstick/$', UnstickTopicView.as_view(), name='unstick_topic'),
@@ -38,7 +39,10 @@ urlpatterns = [
     url('^topics/(?P<pk>\d+)/open/$', OpenTopicView.as_view(), name='open_topic'),
     url('^topics/(?P<pk>\d+)/poll_vote/$', TopicPollVoteView.as_view(), name='topic_poll_vote'),
     url('^topics/(?P<pk>\d+)/cancel_poll_vote/$', topic_cancel_poll_vote, name='topic_cancel_poll_vote'),
-    url('^topics/$', TopicsView.as_view(), name='topic_list'),
+
+    # Subscription
+    url('^topics/(?P<pk>\d+)/unsubscribe/$', delete_subscription, name='delete_subscription'),
+    url('^topics/(?P<pk>\d+)/subscribe/$', add_subscription, name='add_subscription'),
 
     # Post
     url('^posts/$', CreatePostView.as_view(), name='add_post'),
@@ -49,10 +53,6 @@ urlpatterns = [
 
     # Preview markup as html
     url('^preview/', preview_post, name='preview_post'),
-
-    # Subscription
-    url('^subscription/topic/(\d+)/delete/$', delete_subscription, name='delete_subscription'),
-    url('^subscription/topic/(\d+)/add/$', add_subscription, name='add_subscription'),
 
     # Commands
     url('^mark_all_as_read/$', mark_all_as_read, name='mark_all_as_read'),
