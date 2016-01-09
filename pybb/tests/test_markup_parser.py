@@ -2,16 +2,15 @@
 
 from __future__ import unicode_literals
 
-from django.contrib.auth import get_user_model
 from django.test import TestCase
+from lxml import html
 
 from pybb import util, defaults
-from pybb.tests.utils import SharedTestModule
+from pybb.models import Category, Forum, Topic, Post
+from pybb.tests.utils import User
 
-User = get_user_model()
 
-
-class MarkupParserTest(TestCase, SharedTestModule):
+class MarkupParserTest(TestCase):
 
     def setUp(self):
         # Reinit Engines because they are stored in memory and the current bbcode engine stored
@@ -163,3 +162,26 @@ class MarkupParserTest(TestCase, SharedTestModule):
         for cleaner, source, dest in cleaners_map:
             self.assertEqual(util.get_body_cleaner(cleaner)(user, source), dest)
             self.assertEqual(util.get_body_cleaner(cleaner)(staff, source), source)
+
+    def create_user(self):
+        self.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+
+    def login_client(self, username='zeus', password='zeus'):
+        self.client.login(username=username, password=password)
+
+    def create_initial(self, post=True):
+        self.category = Category.objects.create(name='foo')
+        self.forum = Forum.objects.create(name='xfoo', description='bar', category=self.category)
+        self.topic = Topic.objects.create(name='etopic', forum=self.forum, user=self.user)
+        if post:
+            self.post = Post.objects.create(topic=self.topic, user=self.user, body='bbcode [b]test[/b]')
+
+    def get_form_values(self, response, form="post-form"):
+        return dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % form)[0].form_values())
+
+    def get_with_user(self, url, username=None, password=None):
+        if username:
+            self.client.login(username=username, password=password)
+        r = self.client.get(url)
+        self.client.logout()
+        return r

@@ -1,17 +1,15 @@
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.urlresolvers import reverse
 from django.test import TestCase, Client
+from lxml import html
 
-from pybb.models import Post, Topic
+from pybb.models import Post, Topic, Category, Forum
 from pybb.settings import settings as pybb_settings
-from pybb.tests.utils import SharedTestModule
-
-User = get_user_model()
+from pybb.tests.utils import User
 
 
-class PreModerationTest(TestCase, SharedTestModule):
+class PreModerationTest(TestCase):
     def setUp(self):
         self.ORIG_PYBB_PREMODERATION = pybb_settings.PYBB_PREMODERATION
         pybb_settings.PYBB_PREMODERATION = premoderate_test
@@ -118,6 +116,29 @@ class PreModerationTest(TestCase, SharedTestModule):
 
     def tearDown(self):
         pybb_settings.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
+
+    def create_user(self):
+        self.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+
+    def login_client(self, username='zeus', password='zeus'):
+        self.client.login(username=username, password=password)
+
+    def create_initial(self, post=True):
+        self.category = Category.objects.create(name='foo')
+        self.forum = Forum.objects.create(name='xfoo', description='bar', category=self.category)
+        self.topic = Topic.objects.create(name='etopic', forum=self.forum, user=self.user)
+        if post:
+            self.post = Post.objects.create(topic=self.topic, user=self.user, body='bbcode [b]test[/b]')
+
+    def get_form_values(self, response, form="post-form"):
+        return dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % form)[0].form_values())
+
+    def get_with_user(self, url, username=None, password=None):
+        if username:
+            self.client.login(username=username, password=password)
+        r = self.client.get(url)
+        self.client.logout()
+        return r
 
 
 def premoderate_test(user, post):
