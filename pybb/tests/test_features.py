@@ -753,18 +753,32 @@ class FeaturesTest(APITestCase):
         forum = Forum.objects.create(category=category, name='foo')
         topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
         self.client.force_authenticate(superuser)
-        add_post_url = reverse('pybb:add_post', args=[topic.id])
-        response = self.client.get(add_post_url)
-        values = self.get_form_values(response)
-        values['body'] = 'test closed'
         response = self.client.get(reverse('pybb:close_topic', args=[topic.id]), follow=True)
+        use_post_request_msg = 'Should use a post request to make changes on the server'
+        self.assertEqual(response.status_code, 405, use_post_request_msg)
+
+        response = self.client.post(reverse('pybb:close_topic', args=[topic.id]), follow=True)
         self.assertEqual(response.status_code, 200)
+
+        add_post_url = reverse('pybb:add_post')
+        values = {'body': 'test closed', 'topic': topic.id}
+        response = self.client.post(add_post_url, values, follow=True)
+        self.assertEqual(response.status_code, 201, 'Superusers can post in closed topics')
+
+        peon = User.objects.create_user('regular_user')
+        self.client.force_authenticate(peon)
         response = self.client.post(add_post_url, values, follow=True)
         self.assertEqual(response.status_code, 403)
+
+        self.client.force_authenticate(superuser)
         response = self.client.get(reverse('pybb:open_topic', args=[topic.id]), follow=True)
+        self.assertEqual(response.status_code, 405, use_post_request_msg)
+        response = self.client.post(reverse('pybb:open_topic', args=[topic.id]), follow=True)
         self.assertEqual(response.status_code, 200)
+
+        self.client.force_authenticate(peon)
         response = self.client.post(add_post_url, values, follow=True)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
 
     def test_subscription(self):
         superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
