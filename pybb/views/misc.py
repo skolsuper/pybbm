@@ -190,7 +190,7 @@ def preview_post(request):
     message_string = request.data.get('message', '')
     markup_type = request.data.get('markup', None)
     if markup_type is None:
-        markup_type = settings.PYBB_DEFAULT_MARKUP
+        markup_type = settings.PYBB_MARKUP
     markup_engine = get_markup_engine(markup_type)
     html = markup_engine.format(message_string)
     return Response({'html': html, 'markup': markup_type}, status=status.HTTP_200_OK)

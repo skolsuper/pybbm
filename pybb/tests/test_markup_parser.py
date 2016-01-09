@@ -2,47 +2,31 @@
 
 from __future__ import unicode_literals
 
-from django.test import TestCase
-from lxml import html
+from django.test import TestCase, override_settings
 
-from pybb import util, defaults
-from pybb.models import Category, Forum, Topic, Post
+from pybb import util
 from pybb.tests.utils import User
 
+test_markup_engines_setting = {
+    'bbcode': 'pybb.markup.bbcode.BBCodeParser',  # default parser
+    'bbcode_custom': 'test_project.markup_parsers.CustomBBCodeParser',  # overrided default parser
+    'liberator': 'test_project.markup_parsers.LiberatorParser',  # completely new parser
+    'fake': 'pybb.markup.base.BaseParser',  # base parser
+    'markdown': 'pybb.markup.markdown.MarkdownParser'
+}
 
+
+@override_settings(PYBB_MARKUP_ENGINES_PATHS=test_markup_engines_setting)
 class MarkupParserTest(TestCase):
-
-    def setUp(self):
-        # Reinit Engines because they are stored in memory and the current bbcode engine stored
-        # may be the old one, depending the test order exec.
-        self.ORIG_PYBB_MARKUP_ENGINES = util.PYBB_MARKUP_ENGINES
-        self.ORIG_PYBB_QUOTE_ENGINES = util.PYBB_QUOTE_ENGINES
-        util.PYBB_MARKUP_ENGINES = {
-            'bbcode': 'pybb.markup.bbcode.BBCodeParser',  # default parser
-            'bbcode_custom': 'test_project.markup_parsers.CustomBBCodeParser',  # overrided default parser
-            'liberator': 'test_project.markup_parsers.LiberatorParser',  # completely new parser
-            'fake': 'pybb.markup.base.BaseParser',  # base parser
-            'markdown': defaults.markdown  # old-style callable parser,
-        }
-        util.PYBB_QUOTE_ENGINES = {
-            'bbcode': 'pybb.markup.bbcode.BBCodeParser',  # default parser
-            'bbcode_custom': 'test_project.markup_parsers.CustomBBCodeParser',  # overrided default parser
-            'liberator': 'test_project.markup_parsers.LiberatorParser',  # completely new parser
-            'fake': 'pybb.markup.base.BaseParser',  # base parser
-            'markdown': lambda text, username="": '>' + text.replace('\n', '\n>').replace('\r', '\n>') + '\n'  # old-style callable parser
-        }
 
     def tearDown(self):
         util._MARKUP_ENGINES = {}
-        util._QUOTE_ENGINES = {}
-        util.PYBB_MARKUP_ENGINES = self.ORIG_PYBB_MARKUP_ENGINES
-        util.PYBB_QUOTE_ENGINES = self.ORIG_PYBB_QUOTE_ENGINES
 
     def test_markup_engines(self):
 
         def _test_engine(parser_name, text_to_html_map):
             for item in text_to_html_map:
-                self.assertIn(util._get_markup_formatter(parser_name)(item[0]), item[1:])
+                self.assertIn(util.get_markup_engine(parser_name).format(item[0]), item[1:])
 
         text_to_html_map = [
             ['[b]bold[/b]', '<strong>bold</strong>'],
@@ -123,8 +107,8 @@ class MarkupParserTest(TestCase):
 
         def _test_engine(parser_name, text_to_quote_map):
             for item in text_to_quote_map:
-                self.assertEqual(util._get_markup_quoter(parser_name)(item[0]), item[1])
-                self.assertEqual(util._get_markup_quoter(parser_name)(item[0], 'username'), item[2])
+                self.assertEqual(util.get_markup_engine(parser_name).quote(item[0]), item[1])
+                self.assertEqual(util.get_markup_engine(parser_name).quote(item[0], 'username'), item[2])
 
         text_to_quote_map = [
             ['quote text', '[quote=""]quote text[/quote]\n', '[quote="username"]quote text[/quote]\n']
@@ -162,26 +146,3 @@ class MarkupParserTest(TestCase):
         for cleaner, source, dest in cleaners_map:
             self.assertEqual(util.get_body_cleaner(cleaner)(user, source), dest)
             self.assertEqual(util.get_body_cleaner(cleaner)(staff, source), source)
-
-    def create_user(self):
-        self.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-
-    def login_client(self, username='zeus', password='zeus'):
-        self.client.login(username=username, password=password)
-
-    def create_initial(self, post=True):
-        self.category = Category.objects.create(name='foo')
-        self.forum = Forum.objects.create(name='xfoo', description='bar', category=self.category)
-        self.topic = Topic.objects.create(name='etopic', forum=self.forum, user=self.user)
-        if post:
-            self.post = Post.objects.create(topic=self.topic, user=self.user, body='bbcode [b]test[/b]')
-
-    def get_form_values(self, response, form="post-form"):
-        return dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % form)[0].form_values())
-
-    def get_with_user(self, url, username=None, password=None):
-        if username:
-            self.client.login(username=username, password=password)
-        r = self.client.get(url)
-        self.client.logout()
-        return r
