@@ -10,7 +10,7 @@ from rest_framework.exceptions import PermissionDenied, NotAuthenticated
 from rest_framework.generics import DestroyAPIView, CreateAPIView, UpdateAPIView, RetrieveAPIView
 from rest_framework.response import Response
 
-from pybb import settings as defaults
+from pybb.settings import settings
 from pybb.models import Topic, Post
 from pybb.permissions import PermissionsMixin
 from pybb.serializers import PostSerializer
@@ -30,7 +30,7 @@ class CreatePostView(PermissionsMixin, CreateAPIView):
         data = request.data.copy()
         if request.user.is_authenticated():
             data['user'] = request.user.id
-        elif not defaults.settings.PYBB_ENABLE_ANONYMOUS_POST:
+        elif not settings.PYBB_ENABLE_ANONYMOUS_POST:
             raise NotAuthenticated
 
         topic = get_object_or_404(self.get_queryset(), pk=data['topic'])
@@ -69,7 +69,7 @@ class PostView(PermissionsMixin, RetrieveAPIView):
         return post
 
 
-@api_view
+@api_view(['POST'])
 def moderate_post(self, request, *args, **kwargs):
     post = get_object_or_404(Post, pk=kwargs['pk'])
     if not self.perms.may_moderate_topic(request.user, post.topic):
