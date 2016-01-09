@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 from rest_framework import serializers
 
 from pybb.models import Category
@@ -8,7 +11,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ('name', 'position', 'hidden', 'slug', 'forums')
+        fields = ('id', 'name', 'position', 'hidden', 'slug', 'forums')
         depth = 1
 
     forums = ForumSerializer(read_only=True, many=True)

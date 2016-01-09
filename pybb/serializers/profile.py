@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 from rest_framework import serializers
 
 from pybb.util import get_pybb_profile_model

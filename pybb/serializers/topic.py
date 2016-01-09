@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 from django.utils.translation import ugettext as _
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -21,7 +24,7 @@ class TopicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Topic
-        fields = ('forum', 'name', 'body', 'created', 'user', 'views', 'sticky', 'closed', 'on_moderation', 'poll_type',
+        fields = ('id', 'forum', 'name', 'body', 'created', 'user', 'views', 'sticky', 'closed', 'on_moderation', 'poll_type',
                   'poll_question', 'slug')
         extra_kwargs = {
             'user': {'allow_null': True}
