@@ -693,16 +693,15 @@ class FeaturesTest(APITestCase):
         post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]')
         self.client.force_authenticate(user)
         edit_post_url = reverse('pybb:edit_post', kwargs={'pk': post.id})
-        response = self.client.get(edit_post_url)
-        self.assertEqual(response.status_code, 200)
-        tree = html.fromstring(response.content)
-        values = dict(tree.xpath('//form[@method="post"]')[0].form_values())
-        values['body'] = 'test edit'
-        response = self.client.post(edit_post_url, data=values, follow=True)
+        values = {
+            'body': 'test edit',
+            'topic': topic.id
+        }
+        response = self.client.put(edit_post_url, data=values, follow=True)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Post.objects.get(pk=post.id).body, 'test edit')
         response = self.client.get(post.get_absolute_url(), follow=True)
-        self.assertContains(response, 'test edit')
+        self.assertEqual(response.data['body'], 'test edit')
         self.assertIsNotNone(Post.objects.get(id=post.id).updated)
 
     def test_stick(self):
