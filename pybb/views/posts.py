@@ -25,6 +25,7 @@ class CreatePostView(PermissionsMixin, CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
+        data['user'] = request.user.id
         if not (request.user.is_authenticated() or defaults.settings.PYBB_ENABLE_ANONYMOUS_POST):
             raise PermissionDenied
 
@@ -37,6 +38,7 @@ class CreatePostView(PermissionsMixin, CreateAPIView):
             if not self.perms.may_create_post(request.user, topic):
                 raise PermissionDenied
 
+            data['topic'] = topic.id
             if 'quote_id' in request.query_params:
                 try:
                     quote_id = int(request.query_params.get('quote_id'))

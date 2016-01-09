@@ -586,12 +586,14 @@ class FeaturesTest(APITestCase, SharedTestModule):
             'body': 'test ban'
         }
         response = self.client.post(url, data, follow=True)
-        self.assertEqual(len(Post.objects.filter(body='test ban')), 1)
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(Post.objects.filter(body='test ban').exists())
         inactive_user = User.objects.create_user('inactive_user', is_active=False)
         data['body'] = 'test ban 2'
         self.client.force_authenticate(inactive_user)
         response = self.client.post(url, data, follow=True)
-        self.assertEqual(len(Post.objects.filter(body='test ban 2')), 0)
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Post.objects.filter(body='test ban 2').exists())
 
     def get_csrf(self, form):
         return form.xpath('//input[@name="csrfmiddlewaretoken"]/@value')[0]
