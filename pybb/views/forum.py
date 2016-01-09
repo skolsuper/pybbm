@@ -14,10 +14,10 @@ from rest_framework.response import Response
 
 from pybb import util
 from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTracker
+from pybb.pagination import PybbTopicPagination, PybbPostPagination
 from pybb.permissions import PermissionsMixin
 from pybb.serializers import ForumSerializer, TopicSerializer, CategorySerializer
 from pybb.settings import settings
-from pybb.views.mixins import PaginatorMixin
 
 
 class CategoryList(PermissionsMixin, ListAPIView):
@@ -78,9 +78,9 @@ class ForumView(PermissionsMixin, RetrieveAPIView):
         return super(ForumView, self).get(request, *args, **kwargs)
 
 
-class TopicsView(PermissionsMixin, PaginatorMixin, ListCreateAPIView):
+class TopicsView(PermissionsMixin, ListCreateAPIView):
 
-    paginate_by = settings.PYBB_FORUM_PAGE_SIZE
+    pagination_class = PybbTopicPagination
     queryset = Topic.objects.annotate(Count('posts'), last_update=Max('posts__updated'))
     serializer_class = TopicSerializer
 
@@ -98,7 +98,8 @@ class TopicsView(PermissionsMixin, PaginatorMixin, ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
-class TopicView(PermissionsMixin, PaginatorMixin, RetrieveAPIView):
+class TopicView(PermissionsMixin, RetrieveAPIView):
+    pagination_class = PybbPostPagination
     queryset = Topic.objects.annotate(Count('posts'))
     serializer_class = TopicSerializer
 

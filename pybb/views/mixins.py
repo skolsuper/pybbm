@@ -8,22 +8,12 @@ from django.forms.utils import ErrorList
 from django.http import HttpResponseRedirect
 from django.utils.decorators import method_decorator
 
-from pybb import settings as defaults, compat
+from pybb import settings as defaults
 from pybb.compat import get_atomic_func
 from pybb.forms import PostForm, PollForm, PollAnswerFormSet
 from pybb.models import Topic, Post
 from pybb.permissions import PermissionsMixin
 from pybb.signals import topic_updated
-
-Paginator, pure_pagination = compat.get_paginator_class()
-
-
-class PaginatorMixin(object):
-    def get_paginator(self, queryset, per_page, orphans=0, allow_empty_first_page=True, **kwargs):
-        kwargs = {}
-        if pure_pagination:
-            kwargs['request'] = self.request
-        return Paginator(queryset, per_page, orphans, allow_empty_first_page, **kwargs)
 
 
 class PybbFormsMixin(object):

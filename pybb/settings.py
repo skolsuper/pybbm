@@ -6,8 +6,10 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.six import string_types
 
 defaults = {
-    'PYBB_TOPIC_PAGE_SIZE': 10,
-    'PYBB_FORUM_PAGE_SIZE': 20,
+    'PYBB_DEFAULT_TOPICS_PER_PAGE': 50,
+    'PYBB_DEFAULT_POSTS_PER_PAGE': 10,
+    'PYBB_MAX_TOPICS_PER_PAGE': 100,
+    'PYBB_MAX_POSTS_PER_PAGE': 100,
 
     'PYBB_AVATAR_WIDTH': 80,
     'PYBB_AVATAR_HEIGHT': 80,

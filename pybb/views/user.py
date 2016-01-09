@@ -6,16 +6,14 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import RetrieveAPIView, ListAPIView, UpdateAPIView
 
-from pybb import settings as defaults, util
+from pybb import util
 from pybb.models import Topic, Post
+from pybb.pagination import PybbPostPagination, PybbTopicPagination
 from pybb.permissions import PermissionsMixin
 from pybb.serializers import ProfileSerializer, PostSerializer, TopicSerializer
-from pybb.views.mixins import PaginatorMixin
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD
-
-Profile = util.get_pybb_profile_model()
 
 
 class UserView(RetrieveAPIView):
@@ -29,9 +27,9 @@ class UserView(RetrieveAPIView):
         return util.get_pybb_profile(user)
 
 
-class UserPosts(PermissionsMixin, PaginatorMixin, ListAPIView):
+class UserPosts(PermissionsMixin, ListAPIView):
 
-    paginate_by = defaults.settings.PYBB_TOPIC_PAGE_SIZE
+    pagination_class = PybbPostPagination
     queryset = Post.objects.all()
     serializer_class = PostSerializer
 
@@ -44,8 +42,8 @@ class UserPosts(PermissionsMixin, PaginatorMixin, ListAPIView):
         return qs
 
 
-class UserTopics(PermissionsMixin, PaginatorMixin, ListAPIView):
-    paginate_by = defaults.settings.PYBB_FORUM_PAGE_SIZE
+class UserTopics(PermissionsMixin, ListAPIView):
+    pagination_class = PybbTopicPagination
     queryset = Topic.objects.all()
     serializer_class = TopicSerializer
 

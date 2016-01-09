@@ -32,22 +32,6 @@ def get_atomic_func():
     return atomic_func
 
 
-def get_paginator_class():
-    try:
-        from pure_pagination import Paginator
-        pure_pagination = True
-    except ImportError:
-        # the simplest emulation of django-pure-pagination behavior
-        from django.core.paginator import Paginator, Page
-        class PageRepr(int):
-            def querystring(self):
-                return 'page=%s' % self
-        Page.pages = lambda self: [PageRepr(i) for i in range(1, self.paginator.num_pages + 1)]
-        pure_pagination = False
-
-    return Paginator, pure_pagination
-
-
 def get_related_model_class(parent_model, field_name):
     if django.VERSION[:2] < (1, 8):
         return getattr(parent_model, field_name).related.model
