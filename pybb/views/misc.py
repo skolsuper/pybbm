@@ -9,14 +9,16 @@ from rest_framework import status
 from rest_framework.decorators import permission_classes, api_view
 from rest_framework.exceptions import PermissionDenied, ParseError
 from rest_framework.generics import CreateAPIView
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser
 from pybb.permissions import get_perms, PermissionsMixin
 from pybb.serializers import TopicSerializer
+from pybb.settings import settings
 from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
+from pybb.util import get_markup_engine
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD
@@ -180,3 +182,15 @@ def unblock_user(request, username):
     user.save()
     msg = _('User successfully unblocked')
     return Response({'message': msg}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def preview_post(request):
+    message_string = request.data.get('message', '')
+    markup_type = request.data.get('markup', None)
+    if markup_type is None:
+        markup_type = settings.PYBB_DEFAULT_MARKUP
+    markup_engine = get_markup_engine(markup_type)
+    html = markup_engine.format(message_string)
+    return Response({'html': html, 'markup': markup_type}, status=status.HTTP_200_OK)

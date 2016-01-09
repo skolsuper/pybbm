@@ -7,8 +7,9 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.urlresolvers import reverse
-from django.test import TestCase, skipUnlessDBFeature, Client, override_settings
+from django.test import skipUnlessDBFeature, Client, override_settings
 from lxml import html
+from rest_framework.test import APITestCase
 
 from pybb import util
 from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, Category
@@ -21,7 +22,7 @@ User = get_user_model()
 
 
 @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False, PYBB_PREMODERATION=False)
-class FeaturesTest(TestCase, SharedTestModule):
+class FeaturesTest(APITestCase, SharedTestModule):
 
     @classmethod
     def setUpClass(cls):
@@ -59,12 +60,7 @@ class FeaturesTest(TestCase, SharedTestModule):
     def test_forum_page(self):
         # Check forum page
         response = self.client.get(self.forum.get_absolute_url())
-        self.assertEqual(response.context['forum'], self.forum)
-        tree = html.fromstring(response.content)
-        self.assertTrue(tree.xpath('//a[@href="%s"]' % self.topic.get_absolute_url()))
-        self.assertTrue(tree.xpath('//title[contains(text(),"%s")]' % self.forum.name))
-        self.assertFalse(tree.xpath('//a[contains(@href,"?page=")]'))
-        self.assertFalse(response.context['is_paginated'])
+        self.assertEqual(response.data['name'], self.forum.name)
 
     def test_category_page(self):
         Forum.objects.create(name='xfoo1', description='bar1', category=self.category, parent=self.forum)
@@ -103,11 +99,6 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.assertTrue(response.context['is_paginated'])
         self.assertEqual(response.context['paginator'].num_pages,
                          int((pybb_settings.PYBB_FORUM_PAGE_SIZE + 3) / pybb_settings.PYBB_FORUM_PAGE_SIZE) + 1)
-
-    def test_bbcode_and_topic_title(self):
-        response = self.client.get(self.topic.get_absolute_url())
-        self.assertTrue('name' in response.data)
-        self.assertEqual(response.data['posts'][0]['body'], self.post.body)
 
     def test_topic_addition(self):
         self.login_client()
@@ -588,83 +579,19 @@ class FeaturesTest(TestCase, SharedTestModule):
         response = self.client.get(reverse('pybb:topic_latest'))
         self.assertListEqual(list(response.context['topic_list']), [topic_2, topic_3])
 
-    def test_hidden(self):
-        client = Client()
-        category = Category(name='hcat', hidden=True)
-        category.save()
-        forum_in_hidden = Forum(name='in_hidden', category=category)
-        forum_in_hidden.save()
-        topic_in_hidden = Topic(forum=forum_in_hidden, name='in_hidden', user=self.user)
-        topic_in_hidden.save()
-
-        forum_hidden = Forum(name='hidden', category=self.category, hidden=True)
-        forum_hidden.save()
-        topic_hidden = Topic(forum=forum_hidden, name='hidden', user=self.user)
-        topic_hidden.save()
-
-        post_hidden = Post(topic=topic_hidden, user=self.user, body='hidden')
-        post_hidden.save()
-
-        post_in_hidden = Post(topic=topic_in_hidden, user=self.user, body='hidden')
-        post_in_hidden.save()
-
-        self.assertFalse(category.id in [c.id for c in client.get(reverse('pybb:index')).context['categories']])
-        self.assertEqual(client.get(category.get_absolute_url()).status_code, 302)
-        self.assertEqual(client.get(forum_in_hidden.get_absolute_url()).status_code, 302)
-        self.assertEqual(client.get(topic_in_hidden.get_absolute_url()).status_code, 302)
-
-        self.assertNotContains(client.get(reverse('pybb:index')), forum_hidden.get_absolute_url())
-        self.assertNotContains(client.get(reverse('pybb:feed_topics')), topic_hidden.get_absolute_url())
-        self.assertNotContains(client.get(reverse('pybb:feed_topics')), topic_in_hidden.get_absolute_url())
-
-        self.assertNotContains(client.get(reverse('pybb:feed_posts')), post_hidden.get_absolute_url())
-        self.assertNotContains(client.get(reverse('pybb:feed_posts')), post_in_hidden.get_absolute_url())
-        self.assertEqual(client.get(forum_hidden.get_absolute_url()).status_code, 302)
-        self.assertEqual(client.get(topic_hidden.get_absolute_url()).status_code, 302)
-
-        user = User.objects.create_user('someguy', 'email@abc.xyz', 'password')
-        client.login(username='someguy', password='password')
-
-        response = client.get(reverse('pybb:add_post', kwargs={'topic_id': self.topic.id}))
-        self.assertEqual(response.status_code, 200, response)
-
-        response = client.get(reverse('pybb:add_post', kwargs={'topic_id': self.topic.id}), data={'quote_id': post_hidden.id})
-        self.assertEqual(response.status_code, 403, response)
-
-        client.login(username='zeus', password='zeus')
-        self.assertFalse(category.id in [c.id for c in client.get(reverse('pybb:index')).context['categories']])
-        self.assertNotContains(client.get(reverse('pybb:index')), forum_hidden.get_absolute_url())
-        self.assertEqual(client.get(category.get_absolute_url()).status_code, 403)
-        self.assertEqual(client.get(forum_in_hidden.get_absolute_url()).status_code, 403)
-        self.assertEqual(client.get(topic_in_hidden.get_absolute_url()).status_code, 403)
-        self.assertEqual(client.get(forum_hidden.get_absolute_url()).status_code, 403)
-        self.assertEqual(client.get(topic_hidden.get_absolute_url()).status_code, 403)
-
-        self.user.is_staff = True
-        self.user.save()
-        self.assertTrue(category.id in [c.id for c in client.get(reverse('pybb:index')).context['categories']])
-        self.assertContains(client.get(reverse('pybb:index')), forum_hidden.get_absolute_url())
-        self.assertEqual(client.get(category.get_absolute_url()).status_code, 200)
-        self.assertEqual(client.get(forum_in_hidden.get_absolute_url()).status_code, 200)
-        self.assertEqual(client.get(topic_in_hidden.get_absolute_url()).status_code, 200)
-        self.assertEqual(client.get(forum_hidden.get_absolute_url()).status_code, 200)
-        self.assertEqual(client.get(topic_hidden.get_absolute_url()).status_code, 200)
-
     def test_inactive(self):
-        self.login_client()
+        self.client.force_authenticate(self.user)
         url = reverse('pybb:add_post', kwargs={'topic_id': self.topic.id})
-        response = self.client.get(url)
-        values = self.get_form_values(response)
-        values['body'] = 'test ban'
-        response = self.client.post(url, values, follow=True)
+        data = {
+            'body': 'test ban'
+        }
+        response = self.client.post(url, data, follow=True)
         self.assertEqual(len(Post.objects.filter(body='test ban')), 1)
-        self.user.is_active = False
-        self.user.save()
-        values['body'] = 'test ban 2'
-        self.client.post(url, values, follow=True)
+        inactive_user = User.objects.create_user('inactive_user', is_active=False)
+        data['body'] = 'test ban 2'
+        self.client.force_authenticate(inactive_user)
+        response = self.client.post(url, data, follow=True)
         self.assertEqual(len(Post.objects.filter(body='test ban 2')), 0)
-        self.user.is_active = True
-        self.user.save()
 
     def get_csrf(self, form):
         return form.xpath('//input[@name="csrfmiddlewaretoken"]/@value')[0]
@@ -712,9 +639,13 @@ class FeaturesTest(TestCase, SharedTestModule):
         self.assertTrue(user.is_active)
 
     def test_ajax_preview(self):
-        self.login_client()
-        response = self.client.post(reverse('pybb:post_ajax_preview'), data={'data': '[b]test bbcode ajax preview[/b]'})
-        self.assertContains(response, '<strong>test bbcode ajax preview</strong>')
+        post_data = {
+            'markup': 'bbcode',
+            'message': '[b]test bbcode ajax preview[/b]'
+        }
+        response = self.client.post(reverse('pybb:preview_post'), data=post_data)
+        self.assertEqual(response.data['markup'], 'bbcode')
+        self.assertEqual(response.data['html'], '<strong>test bbcode ajax preview</strong>')
 
     def test_headline(self):
         self.forum.headline = 'test <b>headline</b>'
