@@ -1,10 +1,13 @@
-from rest_framework.serializers import ModelSerializer
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
+from rest_framework import serializers
 
 from pybb.models import Post
 
 
-class PostSerializer(ModelSerializer):
+class PostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Post
-        fields = ('body', 'topic', 'user', 'created', 'updated', 'on_moderation')
+        fields = ('body', 'topic', 'user', 'user_ip', 'created', 'updated', 'on_moderation', 'attachment')

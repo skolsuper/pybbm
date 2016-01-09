@@ -10,7 +10,7 @@ from django.utils.decorators import method_decorator
 
 from pybb import settings as defaults, compat
 from pybb.compat import get_atomic_func
-from pybb.forms import PostForm, AttachmentFormSet, PollForm, PollAnswerFormSet
+from pybb.forms import PostForm, PollForm, PollAnswerFormSet
 from pybb.models import Topic, Post
 from pybb.permissions import PermissionsMixin
 from pybb.signals import topic_updated
@@ -29,7 +29,6 @@ class PaginatorMixin(object):
 class PybbFormsMixin(object):
 
     post_form_class = PostForm
-    attachment_formset_class = AttachmentFormSet
     poll_form_class = PollForm
     poll_answer_formset_class = PollAnswerFormSet
 

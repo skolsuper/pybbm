@@ -23,6 +23,9 @@ class TopicSerializer(serializers.ModelSerializer):
         model = Topic
         fields = ('forum', 'name', 'body', 'created', 'user', 'views', 'sticky', 'closed', 'on_moderation', 'poll_type',
                   'poll_question', 'slug')
+        extra_kwargs = {
+            'user': {'allow_null': True}
+        }
 
     body = serializers.CharField(required=True, write_only=True)
     slug = serializers.SlugField(max_length=255, required=False, default=DefaultSlugBuilder())

@@ -4,11 +4,11 @@ from __future__ import unicode_literals
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from django.db.models.signals import post_save, pre_save, post_delete
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import Signal
 
 from pybb import util, settings as defaults
-from pybb.models import Post, Category, Topic, Forum, Attachment
+from pybb.models import Post, Category, Topic, Forum
 from pybb.permissions import get_perms
 from pybb.subscription import notify_topic_subscribers
 from pybb.util import create_or_check_slug
@@ -17,7 +17,7 @@ topic_updated = Signal(providing_args=['post', 'request'])
 
 
 def post_saved(instance, **kwargs):
-    if kwargs['created']:
+    if kwargs['created'] and instance.user is not None:
         perms = get_perms()
         if not defaults.settings.PYBB_DISABLE_SUBSCRIPTIONS and util.get_pybb_profile(instance.user).autosubscribe and \
                 perms.may_subscribe_topic(instance.user, instance.topic):
@@ -59,10 +59,6 @@ def get_save_slug(extra_field=None):
     return save_slug
 
 
-def attachment_deleted(instance, **kwargs):
-    instance.file.delete(save=False)
-
-
 pre_save_category_slug = get_save_slug()
 pre_save_forum_slug = get_save_slug('category')
 pre_save_topic_slug = get_save_slug('forum')
@@ -73,7 +69,6 @@ def setup():
     pre_save.connect(pre_save_forum_slug, sender=Forum)
     pre_save.connect(pre_save_topic_slug, sender=Topic)
     post_save.connect(post_saved, sender=Post)
-    post_delete.connect(attachment_deleted, sender=Attachment)
     if not defaults.settings.PYBB_DISABLE_NOTIFICATIONS:
         topic_updated.connect(notify_topic_subscribers, sender=Post)
     if defaults.settings.PYBB_AUTO_USER_PERMISSIONS:

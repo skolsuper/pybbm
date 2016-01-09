@@ -13,23 +13,10 @@ from django.utils.timezone import now as tznow
 from django.utils.translation import ugettext, ugettext_lazy
 
 from pybb import settings as defaults, util
-from pybb.models import Topic, Post, Attachment, PollAnswer
+from pybb.models import Topic, Post, PollAnswer
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD
-
-
-class AttachmentForm(forms.ModelForm):
-    class Meta(object):
-        model = Attachment
-        fields = ('file', )
-
-    def clean_file(self):
-        if self.cleaned_data['file'].size > defaults.settings.PYBB_ATTACHMENT_SIZE_LIMIT:
-            raise forms.ValidationError(ugettext('Attachment is too big'))
-        return self.cleaned_data['file']
-
-AttachmentFormSet = inlineformset_factory(Post, Attachment, extra=1, form=AttachmentForm)
 
 
 class PollAnswerForm(forms.ModelForm):
