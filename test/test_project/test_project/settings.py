@@ -86,9 +86,6 @@ TEMPLATE_DIRS = (
     os.path.join(BASE_DIR, 'templates'),
 )
 
-if django.VERSION[:2] > (1, 4):
-    AUTH_USER_MODEL = 'test_app.CustomUser'
-
 LOGIN_URL = '/'
 
 PYBB_ATTACHMENT_ENABLE = True

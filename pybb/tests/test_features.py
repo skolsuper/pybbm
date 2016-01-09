@@ -3,14 +3,12 @@
 from __future__ import unicode_literals
 
 import datetime
-
 from django.conf import settings
 from django.core import mail
 from django.core.urlresolvers import reverse
 from django.test import skipUnlessDBFeature, Client, override_settings
-from django.utils.unittest import skip
 from lxml import html
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIClient
 
 from pybb import util
 from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, Category
@@ -19,52 +17,42 @@ from pybb.templatetags.pybb_tags import pybb_topic_unread, pybb_is_topic_unread,
     pybb_get_latest_topics, pybb_get_latest_posts
 from pybb.tests.utils import Profile, User
 
+
 @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False, PYBB_PREMODERATION=False)
 class FeaturesTest(APITestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        super(FeaturesTest, cls).setUpClass()
-        cls.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        cls.user.is_active = True
-        cls.user.save()
-        cls.category = Category.objects.create(name='foo')
-        cls.forum = Forum.objects.create(name='xfoo', description='bar', category=cls.category)
-        cls.topic = Topic.objects.create(name='etopic', forum=cls.forum, user=cls.user)
-        cls.post = Post.objects.create(topic=cls.topic, user=cls.user, body='bbcode [b]test[/b]')
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.user.delete()
-        cls.category.delete()
-        super(FeaturesTest, cls).tearDownClass()
 
     def setUp(self):
         mail.outbox = []
 
     def test_base(self):
         # Check index page
-        Forum.objects.create(name='xfoo1', description='bar1', category=self.category, parent=self.forum)
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        Forum.objects.create(name='xfoo1', description='bar1', category=category, parent=forum)
         url = reverse('pybb:index')
         response = self.client.get(url)
         parser = html.HTMLParser(encoding='utf8')
         tree = html.fromstring(response.content, parser=parser)
         self.assertContains(response, 'foo')
-        self.assertContains(response, self.forum.get_absolute_url())
+        self.assertContains(response, forum.get_absolute_url())
         self.assertTrue(pybb_settings.PYBB_DEFAULT_TITLE in tree.xpath('//title')[0].text_content())
         self.assertEqual(len(response.context['categories']), 1)
         self.assertEqual(len(response.context['categories'][0].forums_accessed), 1)
 
     def test_forum_page(self):
         # Check forum page
-        response = self.client.get(self.forum.get_absolute_url())
-        self.assertEqual(response.data['name'], self.forum.name)
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        response = self.client.get(forum.get_absolute_url())
+        self.assertEqual(response.data['name'], forum.name)
 
     def test_category_page(self):
-        Forum.objects.create(name='xfoo1', description='bar1', category=self.category, parent=self.forum)
-        response = self.client.get(self.category.get_absolute_url())
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        Forum.objects.create(name='xfoo1', description='bar1', category=category, parent=forum)
+        response = self.client.get(category.get_absolute_url())
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, self.forum.get_absolute_url())
+        self.assertContains(response, forum.get_absolute_url())
         self.assertEqual(len(response.context['object'].forums_accessed), 1)
 
     def test_profile_language_default(self):
@@ -111,38 +99,51 @@ class FeaturesTest(APITestCase):
         self.assertTrue(Topic.objects.filter(name='new topic name').exists())
 
     def test_post_deletion(self):
-        post = Post(topic=self.topic, user=self.user, body='bbcode [b]test[/b]')
-        post.save()
-        post.delete()
-        Topic.objects.get(id=self.topic.id)
-        Forum.objects.get(id=self.forum.id)
-
-    def test_topic_deletion(self):
-        topic = Topic(name='xtopic', forum=self.forum, user=self.user)
-        topic.save()
-        post = Post(topic=topic, user=self.user, body='one')
-        post.save()
-        post = Post(topic=topic, user=self.user, body='two')
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        topic = Topic.objects.create(name='etopic', forum=forum, user=user)
+        post = Post(topic=topic, user=user, body='bbcode [b]test[/b]')
         post.save()
         post.delete()
         Topic.objects.get(id=topic.id)
-        Forum.objects.get(id=self.forum.id)
+        Forum.objects.get(id=forum.id)
+
+    def test_topic_deletion(self):
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        topic = Topic(name='xtopic', forum=forum, user=user)
+        topic.save()
+        post = Post(topic=topic, user=user, body='one')
+        post.save()
+        post = Post(topic=topic, user=user, body='two')
+        post.save()
+        post.delete()
+        Topic.objects.get(id=topic.id)
+        Forum.objects.get(id=forum.id)
         topic.delete()
-        Forum.objects.get(id=self.forum.id)
+        Forum.objects.get(id=forum.id)
 
     def test_forum_updated(self):
-        topic = Topic(name='xtopic', forum=self.forum, user=self.user)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        topic = Topic(name='xtopic', forum=forum, user=user)
         topic.save()
-        post = Post(topic=topic, user=self.user, body='one')
+        post = Post(topic=topic, user=user, body='one')
         post.save()
         post = Post.objects.get(id=post.id)
-        self.assertAlmostEqual(self.forum.updated, post.created, delta=datetime.timedelta(milliseconds=50))
+        self.assertAlmostEqual(forum.updated, post.created, delta=datetime.timedelta(milliseconds=50))
 
     @skipUnlessDBFeature('supports_microsecond_precision')
     def test_read_tracking(self):
-        topic = Topic(name='xtopic', forum=self.forum, user=self.user)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        topic = Topic(name='xtopic', forum=forum, user=user)
         topic.save()
-        post = Post(topic=topic, user=self.user, body='one')
+        post = Post(topic=topic, user=user, body='one')
         post.save()
         client = Client()
         client.login(username='zeus', password='zeus')
@@ -179,21 +180,24 @@ class FeaturesTest(APITestCase):
         tree = html.fromstring(client.get(reverse('pybb:index')).content)
         self.assertFalse(
             tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % topic.forum.get_absolute_url()))
-        post = Post(topic=topic, user=self.user, body='one')
+        post = Post(topic=topic, user=user, body='one')
         post.save()
         client.get(reverse('pybb:mark_all_as_read'))
         tree = html.fromstring(client.get(reverse('pybb:index')).content)
         self.assertFalse(
             tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % topic.forum.get_absolute_url()))
         # Empty forum - readed
-        f = Forum(name='empty', category=self.category)
+        f = Forum(name='empty', category=category)
         f.save()
         tree = html.fromstring(client.get(reverse('pybb:index')).content)
         self.assertFalse(tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % f.get_absolute_url()))
 
     @skipUnlessDBFeature('supports_microsecond_precision')
     def test_read_tracking_multi_user(self):
-        topic_1 = self.topic
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        topic_1 = Topic(name='xtopic', forum=forum, user=user)
         topic_2 = Topic(name='topic_2', forum=self.forum, user=self.user)
         topic_2.save()
 
@@ -235,7 +239,7 @@ class FeaturesTest(APITestCase):
         self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_bob)], [False, False])
 
         # user_ann creates topic_3, they should get a new topic read tracker in the db
-        add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
+        add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': forum.id})
         response = client_ann.get(add_topic_url)
         values = self.get_form_values(response)
         values['body'] = 'topic_3'
@@ -285,17 +289,18 @@ class FeaturesTest(APITestCase):
         self.assertEqual(TopicReadTracker.objects.filter(user=user_bob).count(), 0)
 
     def test_read_tracking_multi_forum(self):
-        topic_1 = self.topic
-        topic_2 = Topic(name='topic_2', forum=self.forum, user=self.user)
-        topic_2.save()
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        topic_1 = Topic.objects.create(name='xtopic', forum=forum, user=user)
+        topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
 
-        Post(topic=topic_2, user=self.user, body='one').save()
+        Post(topic=topic_2, user=user, body='one').save()
 
-        forum_1 = self.forum
         forum_2 = Forum(name='forum_2', description='bar', category=self.category)
         forum_2.save()
 
-        Topic(name='garbage', forum=forum_2, user=self.user).save()
+        Topic(name='garbage', forum=forum_2, user=user).save()
 
         client = Client()
         client.login(username='zeus', password='zeus')
@@ -315,13 +320,17 @@ class FeaturesTest(APITestCase):
         client.get(topic_2.get_absolute_url())
         self.assertEqual(TopicReadTracker.objects.all().count(), 0)
         self.assertEqual(ForumReadTracker.objects.all().count(), 1)
-        self.assertEqual(ForumReadTracker.objects.filter(user=self.user).count(), 1)
-        self.assertEqual(ForumReadTracker.objects.filter(user=self.user, forum=self.forum).count(), 1)
+        self.assertEqual(ForumReadTracker.objects.filter(user=user).count(), 1)
+        self.assertEqual(ForumReadTracker.objects.filter(user=user, forum=forum).count(), 1)
 
     def test_read_tracker_after_posting(self):
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        topic = Topic.objects.create(name='xtopic', forum=forum, user=user)
         client = Client()
         client.login(username='zeus', password='zeus')
-        add_post_url = reverse('pybb:add_post', kwargs={'topic_id': self.topic.id})
+        add_post_url = reverse('pybb:add_post', kwargs={'topic_id': topic.id})
         response = client.get(add_post_url)
         values = self.get_form_values(response)
         values['body'] = 'test tracking'
@@ -329,16 +338,18 @@ class FeaturesTest(APITestCase):
 
         # after posting in topic it should be readed
         # because there is only one topic, so whole forum should be marked as readed
-        self.assertEqual(TopicReadTracker.objects.filter(user=self.user, topic=self.topic).count(), 0)
-        self.assertEqual(ForumReadTracker.objects.filter(user=self.user, forum=self.forum).count(), 1)
+        self.assertEqual(TopicReadTracker.objects.filter(user=user, topic=topic).count(), 0)
+        self.assertEqual(ForumReadTracker.objects.filter(user=user, forum=forum).count(), 1)
 
     def test_pybb_is_topic_unread_filter(self):
-        forum_1 = self.forum
-        topic_1 = self.topic
-        topic_2 = Topic.objects.create(name='topic_2', forum=forum_1, user=self.user)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        topic_1 = Topic.objects.create(name='xtopic', forum=forum, user=user)
+        topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
 
-        forum_2 = Forum.objects.create(name='forum_2', description='forum2', category=self.category)
-        topic_3 = Topic.objects.create(name='topic_2', forum=forum_2, user=self.user)
+        forum_2 = Forum.objects.create(name='forum_2', description='forum2', category=category)
+        topic_3 = Topic.objects.create(name='topic_2', forum=forum_2, user=user)
 
         Post(topic=topic_1, user=self.user, body='one').save()
         Post(topic=topic_2, user=self.user, body='two').save()
@@ -389,20 +400,20 @@ class FeaturesTest(APITestCase):
             [t.unread for t in pybb_topic_unread([topic_1, topic_2, topic_3], user_ann)],
             [False, False, False])
 
-    @skip('Causing segfault on OSX?!?')
     def test_is_forum_unread_filter(self):
-        Forum.objects.all().delete()
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
 
-        forum_parent = Forum.objects.create(name='f1', category=self.category)
-        forum_child1 = Forum.objects.create(name='f2', category=self.category, parent=forum_parent)
-        forum_child2 = Forum.objects.create(name='f3', category=self.category, parent=forum_parent)
-        topic_1 = Topic.objects.create(name='topic_1', forum=forum_parent, user=self.user)
-        topic_2 = Topic.objects.create(name='topic_2', forum=forum_child1, user=self.user)
-        topic_3 = Topic.objects.create(name='topic_3', forum=forum_child2, user=self.user)
+        forum_parent = Forum.objects.create(name='f1', category=category)
+        forum_child1 = Forum.objects.create(name='f2', category=category, parent=forum_parent)
+        forum_child2 = Forum.objects.create(name='f3', category=category, parent=forum_parent)
+        topic_1 = Topic.objects.create(name='topic_1', forum=forum_parent, user=user)
+        topic_2 = Topic.objects.create(name='topic_2', forum=forum_child1, user=user)
+        topic_3 = Topic.objects.create(name='topic_3', forum=forum_child2, user=user)
 
-        Post(topic=topic_1, user=self.user, body='one').save()
-        Post(topic=topic_2, user=self.user, body='two').save()
-        Post(topic=topic_3, user=self.user, body='three').save()
+        Post(topic=topic_1, user=user, body='one').save()
+        Post(topic=topic_2, user=user, body='two').save()
+        Post(topic=topic_3, user=user, body='three').save()
 
         user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
         client_ann = Client()
@@ -440,13 +451,15 @@ class FeaturesTest(APITestCase):
 
     @skipUnlessDBFeature('supports_microsecond_precision')
     def test_read_tracker_when_topics_forum_changed(self):
-        forum_1 = Forum.objects.create(name='f1', description='bar', category=self.category)
-        forum_2 = Forum.objects.create(name='f2', description='bar', category=self.category)
-        topic_1 = Topic.objects.create(name='t1', forum=forum_1, user=self.user)
-        topic_2 = Topic.objects.create(name='t2', forum=forum_2, user=self.user)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum_1 = Forum.objects.create(name='f1', description='bar', category=category)
+        forum_2 = Forum.objects.create(name='f2', description='bar', category=category)
+        topic_1 = Topic.objects.create(name='t1', forum=forum_1, user=user)
+        topic_2 = Topic.objects.create(name='t2', forum=forum_2, user=user)
 
-        Post.objects.create(topic=topic_1, user=self.user, body='one')
-        Post.objects.create(topic=topic_2, user=self.user, body='two')
+        Post.objects.create(topic=topic_1, user=user, body='one')
+        Post.objects.create(topic=topic_2, user=user, body='two')
 
         user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
         client_ann = Client()
@@ -461,7 +474,7 @@ class FeaturesTest(APITestCase):
         self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_ann)], [False, False])
         self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_ann)], [False, False])
 
-        post = Post.objects.create(topic=topic_1, user=self.user, body='three')
+        post = Post.objects.create(topic=topic_1, user=user, body='three')
         post = Post.objects.get(id=post.id)  # get post with timestamp from DB
 
         topic_1 = Topic.objects.get(id=topic_1.id)
@@ -494,13 +507,15 @@ class FeaturesTest(APITestCase):
 
     @skipUnlessDBFeature('supports_microsecond_precision')
     def test_open_first_unread_post(self):
-        forum_1 = self.forum
-        topic_1 = Topic.objects.create(name='topic_1', forum=forum_1, user=self.user)
-        topic_2 = Topic.objects.create(name='topic_2', forum=forum_1, user=self.user)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum_1 = Forum.objects.create(category=category, name='foo')
+        topic_1 = Topic.objects.create(name='topic_1', forum=forum_1, user=user)
+        topic_2 = Topic.objects.create(name='topic_2', forum=forum_1, user=user)
 
-        post_1_1 = Post.objects.create(topic=topic_1, user=self.user, body='1_1')
-        post_1_2 = Post.objects.create(topic=topic_1, user=self.user, body='1_2')
-        post_2_1 = Post.objects.create(topic=topic_2, user=self.user, body='2_1')
+        post_1_1 = Post.objects.create(topic=topic_1, user=user, body='1_1')
+        post_1_2 = Post.objects.create(topic=topic_1, user=user, body='1_2')
+        post_2_1 = Post.objects.create(topic=topic_2, user=user, body='2_1')
 
         user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
         client_ann = Client()
@@ -515,23 +530,25 @@ class FeaturesTest(APITestCase):
         response = client_ann.get(topic_2.get_absolute_url(), data={'first-unread': 1}, follow=True)
         self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_2.get_absolute_url(), 1, post_2_1.id))
 
-        post_1_3 = Post.objects.create(topic=topic_1, user=self.user, body='1_3')
-        post_1_4 = Post.objects.create(topic=topic_1, user=self.user, body='1_4')
+        post_1_3 = Post.objects.create(topic=topic_1, user=user, body='1_3')
+        post_1_4 = Post.objects.create(topic=topic_1, user=user, body='1_4')
 
         response = client_ann.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
         self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_1.get_absolute_url(), 1, post_1_3.id))
 
     @skipUnlessDBFeature('supports_microsecond_precision')
     def test_latest_topics(self):
-
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
         category_2 = Category.objects.create(name='cat2')
         forum_2 = Forum.objects.create(name='forum_2', category=category_2)
-        topic_1 = Topic.objects.create(name='topic_1', forum=self.forum, user=self.user)
-        topic_3 = Topic.objects.create(name='topic_3', forum=forum_2, user=self.user)
+        topic_1 = Topic.objects.create(name='topic_1', forum=forum, user=user)
+        topic_3 = Topic.objects.create(name='topic_3', forum=forum_2, user=user)
 
-        topic_2 = Topic.objects.create(name='topic_2', forum=self.forum, user=self.user)
+        topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
 
-        Post.objects.create(topic=topic_1, user=self.user, body='Something completely different')
+        Post.objects.create(topic=topic_1, user=user, body='Something completely different')
 
         self.login_client()
         response = self.client.get(reverse('pybb:topic_latest'))
@@ -564,13 +581,13 @@ class FeaturesTest(APITestCase):
         response = self.client.get(reverse('pybb:topic_latest'))
         self.assertListEqual(list(response.context['topic_list']), [topic_2, topic_3])
 
-        topic_1.forum.moderators.add(self.user)
+        topic_1.forum.moderators.add(user)
         response = self.client.get(reverse('pybb:topic_latest'))
         self.assertListEqual(list(response.context['topic_list']), [topic_1, topic_2, topic_3])
 
-        topic_1.forum.moderators.remove(self.user)
-        self.user.is_superuser = True
-        self.user.save()
+        topic_1.forum.moderators.remove(user)
+        user.is_superuser = True
+        user.save()
         response = self.client.get(reverse('pybb:topic_latest'))
         self.assertListEqual(list(response.context['topic_list']), [topic_1, topic_2, topic_3])
 
@@ -579,8 +596,12 @@ class FeaturesTest(APITestCase):
         self.assertListEqual(list(response.context['topic_list']), [topic_2, topic_3])
 
     def test_inactive(self):
-        self.client.force_authenticate(self.user)
-        url = reverse('pybb:add_post', kwargs={'topic_id': self.topic.id})
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic_1', forum=forum, user=user)
+        self.client.force_authenticate(user)
+        url = reverse('pybb:add_post', kwargs={'topic_id': topic.id})
         data = {
             'body': 'test ban'
         }
@@ -594,17 +615,15 @@ class FeaturesTest(APITestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse(Post.objects.filter(body='test ban 2').exists())
 
-    def get_csrf(self, form):
-        return form.xpath('//input[@name="csrfmiddlewaretoken"]/@value')[0]
-
     def test_user_blocking(self):
+        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
         user = User.objects.create_user('test', 'test@localhost', 'test')
-        topic = Topic.objects.create(name='topic', forum=self.forum, user=user)
+        topic = Topic.objects.create(name='topic', forum=forum, user=user)
         p1 = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]')
         p2 = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]')
-        self.user.is_superuser = True
-        self.user.save()
-        self.login_client()
+        self.client.force_authenticate(superuser)
         response = self.client.get(reverse('pybb:block_user', args=[user.username]), follow=True)
         self.assertEqual(response.status_code, 405)
         response = self.client.post(reverse('pybb:block_user', args=[user.username]), follow=True)
@@ -626,12 +645,11 @@ class FeaturesTest(APITestCase):
         self.assertEqual(Post.objects.filter(user=user).count(), 0)
 
     def test_user_unblocking(self):
+        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
         user = User.objects.create_user('test', 'test@localhost', 'test')
         user.is_active = False
         user.save()
-        self.user.is_superuser = True
-        self.user.save()
-        self.login_client()
+        self.client.force_authenticate(superuser)
         response = self.client.get(reverse('pybb:unblock_user', args=[user.username]), follow=True)
         self.assertEqual(response.status_code, 405)
         response = self.client.post(reverse('pybb:unblock_user', args=[user.username]), follow=True)
@@ -649,21 +667,33 @@ class FeaturesTest(APITestCase):
         self.assertEqual(response.data['html'], '<strong>test bbcode ajax preview</strong>')
 
     def test_headline(self):
-        self.forum.headline = 'test <b>headline</b>'
-        self.forum.save()
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        forum.headline = 'test <b>headline</b>'
+        forum.save()
         client = Client()
-        self.assertContains(client.get(self.forum.get_absolute_url()), 'test <b>headline</b>')
+        self.assertContains(client.get(forum.get_absolute_url()), 'test <b>headline</b>')
 
     def test_quote(self):
-        self.login_client()
-        response = self.client.get(reverse('pybb:add_post', kwargs={'topic_id': self.topic.id}),
-                                   data={'quote_id': self.post.id, 'body': 'test tracking'}, follow=True)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic', forum=forum, user=user)
+        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]')
+        self.client.force_authenticate(user)
+        response = self.client.get(reverse('pybb:add_post', kwargs={'topic_id': topic.id}),
+                                   data={'quote_id': post.id, 'body': 'test tracking'}, follow=True)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, self.post.body)
+        self.assertContains(response, post.body)
 
     def test_edit_post(self):
-        self.login_client()
-        edit_post_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic', forum=forum, user=user)
+        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]')
+        self.client.force_authenticate(user)
+        edit_post_url = reverse('pybb:edit_post', kwargs={'pk': post.id})
         response = self.client.get(edit_post_url)
         self.assertEqual(response.status_code, 200)
         tree = html.fromstring(response.content)
@@ -671,80 +701,90 @@ class FeaturesTest(APITestCase):
         values['body'] = 'test edit'
         response = self.client.post(edit_post_url, data=values, follow=True)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Post.objects.get(pk=self.post.id).body, 'test edit')
-        response = self.client.get(self.post.get_absolute_url(), follow=True)
+        self.assertEqual(Post.objects.get(pk=post.id).body, 'test edit')
+        response = self.client.get(post.get_absolute_url(), follow=True)
         self.assertContains(response, 'test edit')
-        self.assertIsNotNone(Post.objects.get(id=self.post.id).updated)
+        self.assertIsNotNone(Post.objects.get(id=post.id).updated)
 
     def test_stick(self):
-        self.user.is_superuser = True
-        self.user.save()
-        self.login_client()
+        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
+        self.client.force_authenticate(superuser)
         self.assertEqual(
-            self.client.get(reverse('pybb:stick_topic', kwargs={'pk': self.topic.id}), follow=True).status_code, 200)
+            self.client.get(reverse('pybb:stick_topic', kwargs={'pk': topic.id}), follow=True).status_code, 200)
         self.assertEqual(
-            self.client.get(reverse('pybb:unstick_topic', kwargs={'pk': self.topic.id}), follow=True).status_code, 200)
+            self.client.get(reverse('pybb:unstick_topic', kwargs={'pk': topic.id}), follow=True).status_code, 200)
 
     def test_delete_view(self):
-        post = Post(topic=self.topic, user=self.user, body='test to delete')
+        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
+        post = Post(topic=topic, user=superuser, body='test to delete')
         post.save()
-        self.user.is_superuser = True
-        self.user.save()
-        self.login_client()
+        self.client.force_authenticate(superuser)
         response = self.client.post(reverse('pybb:delete_post', args=[post.id]), follow=True)
         self.assertEqual(response.status_code, 200)
         # Check that topic and forum exists ;)
-        self.assertEqual(Topic.objects.filter(id=self.topic.id).count(), 1)
-        self.assertEqual(Forum.objects.filter(id=self.forum.id).count(), 1)
+        self.assertEqual(Topic.objects.filter(id=topic.id).count(), 1)
+        self.assertEqual(Forum.objects.filter(id=forum.id).count(), 1)
 
         # Delete topic
-        response = self.client.post(reverse('pybb:delete_post', args=[self.post.id]), follow=True)
+        response = self.client.post(reverse('pybb:delete_post', args=[post.id]), follow=True)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Post.objects.filter(id=self.post.id).count(), 0)
-        self.assertEqual(Topic.objects.filter(id=self.topic.id).count(), 0)
-        self.assertEqual(Forum.objects.filter(id=self.forum.id).count(), 1)
+        self.assertEqual(Post.objects.filter(id=post.id).count(), 0)
+        self.assertEqual(Topic.objects.filter(id=topic.id).count(), 0)
+        self.assertEqual(Forum.objects.filter(id=forum.id).count(), 1)
 
     def test_open_close(self):
-        self.user.is_superuser = True
-        self.user.save()
-        self.login_client()
-        add_post_url = reverse('pybb:add_post', args=[self.topic.id])
+        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
+        self.client.force_authenticate(superuser)
+        add_post_url = reverse('pybb:add_post', args=[topic.id])
         response = self.client.get(add_post_url)
         values = self.get_form_values(response)
         values['body'] = 'test closed'
-        response = self.client.get(reverse('pybb:close_topic', args=[self.topic.id]), follow=True)
+        response = self.client.get(reverse('pybb:close_topic', args=[topic.id]), follow=True)
         self.assertEqual(response.status_code, 200)
         response = self.client.post(add_post_url, values, follow=True)
         self.assertEqual(response.status_code, 403)
-        response = self.client.get(reverse('pybb:open_topic', args=[self.topic.id]), follow=True)
+        response = self.client.get(reverse('pybb:open_topic', args=[topic.id]), follow=True)
         self.assertEqual(response.status_code, 200)
         response = self.client.post(add_post_url, values, follow=True)
         self.assertEqual(response.status_code, 200)
 
     def test_subscription(self):
+        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
         user2 = User.objects.create_user(username='user2', password='user2', email='user2@someserver.com')
         user3 = User.objects.create_user(username='user3', password='user3', email='user3@example.com')
-        client = Client()
+        client = APIClient()
 
-        client.login(username='user2', password='user2')
-        subscribe_url = reverse('pybb:add_subscription', args=[self.topic.id])
-        response = client.get(self.topic.get_absolute_url())
+        client.force_authenticate(user2)
+        subscribe_url = reverse('pybb:add_subscription', args=[topic.id])
+        response = client.get(topic.get_absolute_url())
         subscribe_links = html.fromstring(response.content).xpath('//a[@href="%s"]' % subscribe_url)
         self.assertEqual(len(subscribe_links), 1)
 
         response = client.get(subscribe_url, follow=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn(user2, self.topic.subscribers.all())
+        self.assertIn(user2, topic.subscribers.all())
 
-        self.topic.subscribers.add(user3)
+        topic.subscribers.add(user3)
 
         # create a new reply (with another user)
-        self.client.login(username='zeus', password='zeus')
-        add_post_url = reverse('pybb:add_post', args=[self.topic.id])
-        response = self.client.get(add_post_url)
+        client.force_authenticate(superuser)
+        add_post_url = reverse('pybb:add_post', args=[topic.id])
+        response = client.get(add_post_url)
         values = self.get_form_values(response)
         values['body'] = 'test subscribtion юникод'
-        response = self.client.post(add_post_url, values, follow=True)
+        response = client.post(add_post_url, values, follow=True)
         self.assertEqual(response.status_code, 200)
         new_post = Post.objects.order_by('-id')[0]
 
@@ -754,23 +794,25 @@ class FeaturesTest(APITestCase):
         self.assertTrue([msg for msg in mail.outbox if new_post.get_absolute_url() in msg.body])
 
         # unsubscribe
-        client.login(username='user2', password='user2')
+        client.force_authenticate(user2)
         self.assertTrue([msg for msg in mail.outbox if new_post.get_absolute_url() in msg.body])
-        response = client.get(reverse('pybb:delete_subscription', args=[self.topic.id]), follow=True)
+        response = client.get(reverse('pybb:delete_subscription', args=[topic.id]), follow=True)
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn(user2, self.topic.subscribers.all())
+        self.assertNotIn(user2, topic.subscribers.all())
 
+    @override_settings(PYBB_DISABLE_SUBSCRIPTIONS=True)
     def test_subscription_disabled(self):
-        orig_conf = pybb_settings.PYBB_DISABLE_SUBSCRIPTIONS
-        pybb_settings.PYBB_DISABLE_SUBSCRIPTIONS = True
-
+        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
         user2 = User.objects.create_user(username='user2', password='user2', email='user2@someserver.com')
-        user3 = User.objects.create_user(username='user3', password='user3', email='user3@someserver.com')
-        client = Client()
+        user3 = User.objects.create_user(username='user3', password='user3', email='user3@example.com')
+        client = APIClient()
 
-        client.login(username='user2', password='user2')
-        subscribe_url = reverse('pybb:add_subscription', args=[self.topic.id])
-        response = client.get(self.topic.get_absolute_url())
+        client.force_authenticate(user2)
+        subscribe_url = reverse('pybb:add_subscription', args=[topic.id])
+        response = client.get(topic.get_absolute_url())
         subscribe_links = html.fromstring(response.content).xpath('//a[@href="%s"]' % subscribe_url)
         self.assertEqual(len(subscribe_links), 0)
 
@@ -780,8 +822,8 @@ class FeaturesTest(APITestCase):
         self.topic.subscribers.add(user3)
 
         # create a new reply (with another user)
-        self.client.login(username='zeus', password='zeus')
-        add_post_url = reverse('pybb:add_post', args=[self.topic.id])
+        self.client.force_authenticate(superuser)
+        add_post_url = reverse('pybb:add_post', args=[topic.id])
         response = self.client.get(add_post_url)
         values = self.get_form_values(response)
         values['body'] = 'test subscribtion юникод'
@@ -794,29 +836,29 @@ class FeaturesTest(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to[0], user3.email)
 
-        pybb_settings.PYBB_DISABLE_SUBSCRIPTIONS = orig_conf
-
+    @override_settings(PYBB_DISABLE_NOTIFICATIONS=True)
     def test_notifications_disabled(self):
-        orig_conf = pybb_settings.PYBB_DISABLE_NOTIFICATIONS
-        pybb_settings.PYBB_DISABLE_NOTIFICATIONS = True
-
+        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
         user2 = User.objects.create_user(username='user2', password='user2', email='user2@someserver.com')
-        user3 = User.objects.create_user(username='user3', password='user3', email='user3@someserver.com')
-        client = Client()
+        user3 = User.objects.create_user(username='user3', password='user3', email='user3@example.com')
+        client = APIClient()
 
-        client.login(username='user2', password='user2')
-        subscribe_url = reverse('pybb:add_subscription', args=[self.topic.id])
-        response = client.get(self.topic.get_absolute_url())
+        client.force_authenticate(user2)
+        subscribe_url = reverse('pybb:add_subscription', args=[topic.id])
+        response = client.get(topic.get_absolute_url())
         subscribe_links = html.fromstring(response.content).xpath('//a[@href="%s"]' % subscribe_url)
         self.assertEqual(len(subscribe_links), 1)
         response = client.get(subscribe_url, follow=True)
         self.assertEqual(response.status_code, 200)
 
-        self.topic.subscribers.add(user3)
+        topic.subscribers.add(user3)
 
         # create a new reply (with another user)
-        self.client.login(username='zeus', password='zeus')
-        add_post_url = reverse('pybb:add_post', args=[self.topic.id])
+        self.client.force_authenticate(superuser)
+        add_post_url = reverse('pybb:add_post', args=[topic.id])
         response = self.client.get(add_post_url)
         values = self.get_form_values(response)
         values['body'] = 'test subscribtion юникод'
@@ -827,8 +869,6 @@ class FeaturesTest(APITestCase):
         # there should be no email in the outbox
         self.assertEqual(len(mail.outbox), 0)
 
-        pybb_settings.PYBB_DISABLE_NOTIFICATIONS = orig_conf
-
     @skipUnlessDBFeature('supports_microsecond_precision')
     def test_topic_updated(self):
         topic = Topic(name='new topic', forum=self.forum, user=self.user)
@@ -838,11 +878,11 @@ class FeaturesTest(APITestCase):
         client = Client()
         response = client.get(self.forum.get_absolute_url())
         self.assertEqual(response.context['topic_list'][0], topic)
-        post = Post(topic=self.topic, user=self.user, body='bbcode [b]test[/b]')
+        post = Post(topic=topic, user=self.user, body='bbcode [b]test[/b]')
         post.save()
         client = Client()
         response = client.get(self.forum.get_absolute_url())
-        self.assertEqual(response.context['topic_list'][0], self.topic)
+        self.assertEqual(response.context['topic_list'][0], topic)
 
     def test_topic_deleted(self):
         forum_1 = Forum.objects.create(name='new forum', category=self.category)
