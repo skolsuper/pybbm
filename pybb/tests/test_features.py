@@ -871,30 +871,35 @@ class FeaturesTest(APITestCase):
 
     @skipUnlessDBFeature('supports_microsecond_precision')
     def test_topic_updated(self):
-        topic = Topic(name='new topic', forum=self.forum, user=self.user)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic(name='new topic', forum=forum, user=user)
         topic.save()
-        post = Post(topic=topic, user=self.user, body='bbcode [b]test[/b]')
+        post = Post(topic=topic, user=user, body='bbcode [b]test[/b]')
         post.save()
         client = Client()
-        response = client.get(self.forum.get_absolute_url())
+        response = client.get(forum.get_absolute_url())
         self.assertEqual(response.context['topic_list'][0], topic)
-        post = Post(topic=topic, user=self.user, body='bbcode [b]test[/b]')
+        post = Post(topic=topic, user=user, body='bbcode [b]test[/b]')
         post.save()
         client = Client()
-        response = client.get(self.forum.get_absolute_url())
+        response = client.get(forum.get_absolute_url())
         self.assertEqual(response.context['topic_list'][0], topic)
 
     def test_topic_deleted(self):
-        forum_1 = Forum.objects.create(name='new forum', category=self.category)
-        topic_1 = Topic.objects.create(name='new topic', forum=forum_1, user=self.user)
-        post_1 = Post.objects.create(topic=topic_1, user=self.user, body='test')
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum_1 = Forum.objects.create(name='new forum', category=category)
+        topic_1 = Topic.objects.create(name='new topic', forum=forum_1, user=user)
+        post_1 = Post.objects.create(topic=topic_1, user=user, body='test')
         post_1 = Post.objects.get(id=post_1.id)
 
         self.assertAlmostEqual(topic_1.updated, post_1.created, delta=datetime.timedelta(milliseconds=50))
         self.assertAlmostEqual(forum_1.updated, post_1.created, delta=datetime.timedelta(milliseconds=50))
 
-        topic_2 = Topic.objects.create(name='another topic', forum=forum_1, user=self.user)
-        post_2 = Post.objects.create(topic=topic_2, user=self.user, body='another test')
+        topic_2 = Topic.objects.create(name='another topic', forum=forum_1, user=user)
+        post_2 = Post.objects.create(topic=topic_2, user=user, body='another test')
         post_2 = Post.objects.get(id=post_2.id)
 
         self.assertAlmostEqual(topic_2.updated, post_2.created, delta=datetime.timedelta(milliseconds=50))
@@ -912,54 +917,65 @@ class FeaturesTest(APITestCase):
         self.assertEqual(forum_1.posts.count(), 0)
 
     def test_user_views(self):
-        response = self.client.get(reverse('pybb:user', kwargs={'username': self.user.username}))
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        response = self.client.get(reverse('pybb:user', kwargs={'username': user.username}))
         self.assertEqual(response.status_code, 200)
 
-        response = self.client.get(reverse('pybb:user_posts', kwargs={'username': self.user.username}))
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['object_list'].count(), 1)
-
-        response = self.client.get(reverse('pybb:user_topics', kwargs={'username': self.user.username}))
+        response = self.client.get(reverse('pybb:user_posts', kwargs={'username': user.username}))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['object_list'].count(), 1)
 
-        self.topic.forum.hidden = True
-        self.topic.forum.save()
+        response = self.client.get(reverse('pybb:user_topics', kwargs={'username': user.username}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['object_list'].count(), 1)
+        forum_1 = Forum.objects.create(name='new forum', category=category)
+        topic_1 = Topic.objects.create(name='new topic', forum=forum_1, user=user)
+        topic_1.forum.hidden = True
+        topic_1.forum.save()
 
         self.client.logout()
 
-        response = self.client.get(reverse('pybb:user_posts', kwargs={'username': self.user.username}))
+        response = self.client.get(reverse('pybb:user_posts', kwargs={'username': user.username}))
         self.assertEqual(response.context['object_list'].count(), 0)
 
-        response = self.client.get(reverse('pybb:user_topics', kwargs={'username': self.user.username}))
+        response = self.client.get(reverse('pybb:user_topics', kwargs={'username': user.username}))
         self.assertEqual(response.context['object_list'].count(), 0)
 
     def test_post_count(self):
-        topic = Topic(name='etopic', forum=self.forum, user=self.user)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic(name='etopic', forum=forum, user=user)
         topic.save()
-        post = Post(topic=topic, user=self.user, body='test') # another post
+        post = Post(topic=topic, user=user, body='test') # another post
         post.save()
-        self.assertEqual(util.get_pybb_profile(self.user).user.posts.count(), 2)
+        self.assertEqual(util.get_pybb_profile(user).user.posts.count(), 1)
         post.body = 'test2'
         post.save()
-        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(self.user).pk).user.posts.count(), 2)
+        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(user).pk).user.posts.count(), 1)
         post.delete()
-        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(self.user).pk).user.posts.count(), 1)
+        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(user).pk).user.posts.count(), 0)
 
     def test_latest_topics_tag(self):
-        Topic.objects.all().delete()
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
         for i in range(10):
-            Topic.objects.create(name='topic%s' % i, user=self.user, forum=self.forum)
-        latest_topics = pybb_get_latest_topics(context=None, user=self.user)
+            Topic.objects.create(name='topic%s' % i, user=user, forum=forum)
+        latest_topics = pybb_get_latest_topics(context=None, user=user)
         self.assertEqual(len(latest_topics), 5)
         self.assertEqual(latest_topics[0].name, 'topic9')
         self.assertEqual(latest_topics[4].name, 'topic5')
 
     def test_latest_posts_tag(self):
-        Post.objects.all().delete()
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic', user=user, forum=forum)
         for i in range(10):
-            Post.objects.create(body='post%s' % i, user=self.user, topic=self.topic)
-        latest_topics = pybb_get_latest_posts(context=None, user=self.user)
+            Post.objects.create(body='post%s' % i, user=user, topic=topic)
+        latest_topics = pybb_get_latest_posts(context=None, user=user)
         self.assertEqual(len(latest_topics), 5)
         self.assertEqual(latest_topics[0].body, 'post9')
         self.assertEqual(latest_topics[4].body, 'post5')
@@ -968,16 +984,17 @@ class FeaturesTest(APITestCase):
         """
         see issue #87: https://github.com/hovel/pybbm/issues/87
         """
-        self.user.is_superuser = False
-        self.user.is_staff = False
-        self.user.save()
-        self.topic.on_moderation = False
-        self.topic.save()
-        self.assertEqual(self.topic.user.id, self.user.id)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(category=category, name='foo')
+        topic = Topic.objects.create(name='topic', user=user, forum=forum)
+        topic.on_moderation = False
+        topic.save()
+        self.assertEqual(topic.user.id, user.id)
         user1 = User.objects.create_user('geyser', 'geyser@localhost', 'geyser')
-        self.topic.forum.moderators.add(self.user)
+        self.topic.forum.moderators.add(user)
         self.topic.forum.moderators.add(user1)
 
         self.login_client()
-        response = self.client.get(reverse('pybb:add_post', kwargs={'topic_id': self.topic.id}))
+        response = self.client.get(reverse('pybb:add_post', kwargs={'topic_id': topic.id}))
         self.assertEqual(response.status_code, 200)
