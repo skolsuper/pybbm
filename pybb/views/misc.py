@@ -148,26 +148,11 @@ def block_user(request, username):
         raise PermissionDenied
     user.is_active = False
     user.save()
-    if 'block_and_delete_messages' in request.POST:
-        # individually delete each post and empty topic to fire method
-        # with forum/topic counters recalculation
-        posts = Post.objects.filter(user=user)
-        topics = posts.values('topic_id').distinct()
-        forums = posts.values('topic__forum_id').distinct()
-        posts.delete()
+    if 'block_and_delete_messages' in request.data:
+        Post.objects.filter(user=user).delete()
         Topic.objects.filter(user=user).delete()
-        for t in topics:
-            try:
-                Topic.objects.get(id=t['topic_id']).update_counters()
-            except Topic.DoesNotExist:
-                pass
-        for f in forums:
-            try:
-                Forum.objects.get(id=f['topic__forum_id']).update_counters()
-            except Forum.DoesNotExist:
-                pass
 
-    msg = _('User successfully blocked')
+    msg = _('User {} successfully blocked'.format(user.username))
     return Response({'message': msg}, status=status.HTTP_200_OK)
 
 
@@ -180,7 +165,7 @@ def unblock_user(request, username):
         raise PermissionDenied
     user.is_active = True
     user.save()
-    msg = _('User successfully unblocked')
+    msg = _('User {} successfully unblocked'.format(user.username))
     return Response({'message': msg}, status=status.HTTP_200_OK)
 
 

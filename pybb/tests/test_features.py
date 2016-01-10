@@ -640,18 +640,17 @@ class FeaturesTest(APITestCase):
         self.assertEqual(response.status_code, 200)
         user = User.objects.get(username=user.username)
         self.assertFalse(user.is_active)
-        self.assertEqual(Topic.objects.filter().count(), 2)
+        self.assertEqual(Topic.objects.count(), 1)
         self.assertEqual(Post.objects.filter(user=user).count(), 2)
 
         user.is_active = True
         user.save()
-        self.assertEqual(Topic.objects.count(), 2)
         response = self.client.post(reverse('pybb:block_user', args=[user.username]),
-                                    data={'block_and_delete_messages': 'block_and_delete_messages'}, follow=True)
+                                    data={'block_and_delete_messages': True}, follow=True)
         self.assertEqual(response.status_code, 200)
         user = User.objects.get(username=user.username)
         self.assertFalse(user.is_active)
-        self.assertEqual(Topic.objects.count(), 1)
+        self.assertEqual(Topic.objects.count(), 0)
         self.assertEqual(Post.objects.filter(user=user).count(), 0)
 
     def test_user_unblocking(self):
