@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from pybb import compat
-from pybb.models import Topic, Post
+from pybb.models import Topic, Post, PollAnswer
 from pybb.settings import settings
 
 
@@ -20,22 +20,33 @@ class DefaultSlugBuilder(object):
         self.name = field.parent.initial_data.get('name', None)
 
 
+class PollAnswerSerializer(serializers.Serializer):
+
+    text = serializers.CharField()
+    votes = serializers.IntegerField(read_only=True)
+    votes_percent = serializers.FloatField(read_only=True)
+
+
 class TopicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Topic
-        fields = ('id', 'forum', 'name', 'body', 'created', 'user', 'views', 'sticky', 'closed', 'on_moderation', 'poll_type',
-                  'poll_question', 'slug')
+        fields = ('id', 'forum', 'name', 'body', 'created', 'user', 'views', 'sticky', 'closed', 'on_moderation',
+                  'poll_type', 'poll_question', 'poll_answers', 'slug')
         extra_kwargs = {
             'user': {'allow_null': True}
         }
 
     body = serializers.CharField(required=True, write_only=True)
     slug = serializers.SlugField(max_length=255, required=False, default=DefaultSlugBuilder())
+    poll_answers = PollAnswerSerializer(many=True)
 
     def save(self, **kwargs):
         post_body = self.validated_data.pop('body')
+        poll_answers = self.validated_data.pop('poll_answers', None)
         instance = super(TopicSerializer, self).save(**kwargs)
+        for answer in poll_answers:
+            PollAnswer.objects.create(topic=instance, text=answer['text'])
         Post.objects.create(topic=instance, user=instance.user, body=post_body, on_moderation=instance.on_moderation)
         return instance
 

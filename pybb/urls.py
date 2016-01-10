@@ -7,7 +7,7 @@ from pybb.feeds import LastPosts, LastTopics
 from pybb.views import CategoryList, CategoryView, ForumView, TopicView,\
     CreatePostView, UpdatePostView, UserView, PostView, ProfileEditView,\
     DeletePostView, StickTopicView, UnstickTopicView, CloseTopicView,\
-    OpenTopicView, moderate_post, TopicPollVoteView, TopicsView,\
+    OpenTopicView, moderate_post, TopicPollVoteView, ListCreateTopicsView,\
     UserTopics, UserPosts, topic_cancel_poll_vote, block_user, unblock_user,\
     delete_subscription, add_subscription, mark_all_as_read, preview_post
 
@@ -31,7 +31,7 @@ urlpatterns = [
     url('^profile/edit/$', ProfileEditView.as_view(), name='edit_profile'),
 
     # Topic
-    url('^topics/$', TopicsView.as_view(), name='topic_list'),
+    url('^topics/$', ListCreateTopicsView.as_view(), name='topic_list'),
     url('^topics/(?P<pk>\d+)/$', TopicView.as_view(), name='topic'),
     url('^topics/(?P<pk>\d+)/stick/$', StickTopicView.as_view(), name='stick_topic'),
     url('^topics/(?P<pk>\d+)/unstick/$', UnstickTopicView.as_view(), name='unstick_topic'),

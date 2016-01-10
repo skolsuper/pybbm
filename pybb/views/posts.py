@@ -62,6 +62,9 @@ class PostView(PermissionsMixin, RetrieveAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
 
+    def get_queryset(self):
+        return self.perms.filter_posts(self.request.user, self.queryset)
+
     def get_object(self):
         post = super(PostView, self).get_object()
         if not self.perms.may_view_post(self.request.user, post):

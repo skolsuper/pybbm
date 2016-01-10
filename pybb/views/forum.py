@@ -10,6 +10,7 @@ from django.shortcuts import redirect, get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.generics import RetrieveAPIView, ListAPIView, ListCreateAPIView
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
 from pybb import util
@@ -33,6 +34,9 @@ class CategoryView(PermissionsMixin, RetrieveAPIView):
 
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+
+    def get_queryset(self):
+        return self.perms.filter_categories(self.request.user, self.queryset)
 
     def get_object(self):
         if 'pk' in self.kwargs:
@@ -78,17 +82,20 @@ class ForumView(PermissionsMixin, RetrieveAPIView):
         return super(ForumView, self).get(request, *args, **kwargs)
 
 
-class TopicsView(PermissionsMixin, ListCreateAPIView):
+class ListCreateTopicsView(PermissionsMixin, ListCreateAPIView):
 
     pagination_class = PybbTopicPagination
     queryset = Topic.objects.annotate(Count('posts'), last_update=Max('posts__updated'))
     serializer_class = TopicSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         qs = self.perms.filter_topics(self.request.user, self.queryset)
         return qs.order_by('-last_update', '-id')
 
     def create(self, request, *args, **kwargs):
+        if 'poll_question' in request.data and not self.perms.may_create_poll(request.user):
+            raise PermissionDenied
         data = request.data.copy()
         data['user'] = self.request.user.id
         serializer = self.get_serializer(data=data)
