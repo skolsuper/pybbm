@@ -5,6 +5,7 @@ Extensible permission system for pybbm
 
 from __future__ import unicode_literals
 from django.db.models import Q
+from django.utils.module_loading import import_string
 
 from pybb import settings as defaults, util
 
@@ -185,7 +186,7 @@ class DefaultPermissionHandler(object):
 
 
 def get_perms():
-    return util.resolve_class(defaults.settings.PYBB_PERMISSION_HANDLER)
+    return import_string(defaults.settings.PYBB_PERMISSION_HANDLER)()
 
 
 class PermissionsMixin(object):

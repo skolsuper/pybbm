@@ -3,10 +3,10 @@ from __future__ import unicode_literals
 
 import os
 import uuid
-from importlib import import_module
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.utils.module_loading import import_string
 from django.utils.six import string_types
 from django.utils.translation import ugettext as _
 
@@ -15,24 +15,6 @@ from pybb.markup.base import BaseParser
 from pybb.settings import settings
 
 _MARKUP_ENGINES = {}
-
-
-def resolve_class(name):
-    """ resolves a class function given as string, returning the function """
-    if not name:
-        return None
-    modname, funcname = name.rsplit('.', 1)
-    return getattr(import_module(modname), funcname)()
-
-
-def resolve_function(path):
-    if path:
-        path = path.split('.')
-        to_import = path.pop()
-        module = import_module('.'.join(path))
-        if module:
-            return getattr(module, to_import)
-    return None
 
 
 def get_markup_engine(name=None):
@@ -53,13 +35,13 @@ def get_markup_engine(name=None):
         # TODO In a near future, we should stop to support callable
         if isinstance(engine, string_types):
             # This is a path, import it
-            engine = resolve_class(engine)
+            engine = import_string(engine)()
     _MARKUP_ENGINES[name] = engine
     return engine
 
 
 def get_body_cleaner(name):
-    return resolve_function(name) if isinstance(name, string_types) else name
+    return import_string(name) if isinstance(name, string_types) else name
 
 
 def unescape(text):
