@@ -20,4 +20,4 @@ class FiltersTest(APITestCase):
         }
         response = self.client.post(add_post_url, values, follow=True)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(Post.objects.all()[0].body, 'test\nmultiple empty lines')
+        self.assertEqual(Post.objects.all()[0].body, 'test<br />multiple empty lines')

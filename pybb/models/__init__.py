@@ -1,4 +1,3 @@
-Attachment = ''
 from .category import Category
 from .forum import Forum
 from .poll import PollAnswer, PollAnswerUser

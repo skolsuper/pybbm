@@ -14,12 +14,9 @@ class PostBodyField(serializers.CharField):
         for cleaner_path in settings.PYBB_BODY_CLEANERS:
             cleaner_fn = import_string(cleaner_path)
             data = cleaner_fn(data)
-        return data
-
-    def to_representation(self, value):
         markup_engine_path = settings.PYBB_MARKUP_ENGINES_PATHS[settings.PYBB_MARKUP]
         markup_engine = import_string(markup_engine_path)()
-        return markup_engine.format(value)
+        return markup_engine.format(data)
 
 
 class PostSerializer(serializers.ModelSerializer):
