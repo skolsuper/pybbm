@@ -1,7 +1,10 @@
 # coding=utf-8
 from __future__ import unicode_literals
+
 import os
+
 import django
+
 try:
     import south
     south_installed = True
@@ -62,7 +65,6 @@ TEMPLATE_CONTEXT_PROCESSORS = [
     'django.core.context_processors.media',
     'django.core.context_processors.static',
     'django.core.context_processors.request',
-    'pybb.context_processors.processor',
     'django.core.context_processors.tz'
 ]
 
