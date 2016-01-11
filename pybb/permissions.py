@@ -4,10 +4,11 @@ Extensible permission system for pybbm
 """
 
 from __future__ import unicode_literals
+
 from django.db.models import Q
 from django.utils.module_loading import import_string
 
-from pybb import settings as defaults, util
+from pybb.settings import settings
 
 
 class DefaultPermissionHandler(object):
@@ -110,11 +111,11 @@ class DefaultPermissionHandler(object):
             return False
 
         # only user which have 'pybb.add_post' permission may post
-        return defaults.settings.PYBB_ENABLE_ANONYMOUS_POST or user.has_perm('pybb.add_post')
+        return settings.PYBB_ENABLE_ANONYMOUS_POST or user.has_perm('pybb.add_post')
 
     def may_subscribe_topic(self, user, forum):
         """ return True if `user` is allowed to subscribe to a `topic` """
-        return not defaults.settings.PYBB_DISABLE_SUBSCRIPTIONS
+        return not settings.PYBB_DISABLE_SUBSCRIPTIONS
 
     #
     # permission checks on posts
@@ -126,7 +127,7 @@ class DefaultPermissionHandler(object):
         if not user.is_staff:
             qs = qs.filter(Q(topic__forum__hidden=False) & Q(topic__forum__category__hidden=False))
 
-        if not defaults.settings.PYBB_PREMODERATION or user.is_superuser:
+        if not settings.PYBB_PREMODERATION or user.is_superuser:
             # superuser may see all posts, also if premoderation is turned off moderation 
             # flag is ignored
             return qs
@@ -167,7 +168,7 @@ class DefaultPermissionHandler(object):
         return True if `user` may attach files to posts, False otherwise.
         By default controlled by PYBB_ATTACHMENT_ENABLE setting
         """
-        return defaults.settings.PYBB_ATTACHMENT_ENABLE
+        return settings.PYBB_ATTACHMENT_ENABLE
 
     def may_create_poll(self, user):
         """
@@ -186,7 +187,7 @@ class DefaultPermissionHandler(object):
 
 
 def get_perms():
-    return import_string(defaults.settings.PYBB_PERMISSION_HANDLER)()
+    return import_string(settings.PYBB_PERMISSION_HANDLER)()
 
 
 class PermissionsMixin(object):
