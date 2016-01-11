@@ -14,22 +14,18 @@ def smile_it(s):
     return s
 
 
-def filter_blanks(user, str):
+def filter_blanks(str):
     """
     Replace more than 3 blank lines with only 1 blank line
     """
-    if user.is_staff:
-        return str
     return re.sub(r'\n{2}\n+', '\n', str)
 
 
-def rstrip_str(user, str):
+def rstrip_str(str):
     """
     Replace strings with spaces (tabs, etc..) only with newlines
     Remove blank line at the end
     """
-    if user.is_staff:
-        return str
     return '\n'.join([s.rstrip() for s in str.splitlines()])
 
 

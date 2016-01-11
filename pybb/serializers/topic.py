@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 
 from pybb import compat
 from pybb.models import Topic, Post, PollAnswer
+from pybb.serializers.post import PostBodyField
 from pybb.settings import settings
 
 
@@ -37,7 +38,7 @@ class TopicSerializer(serializers.ModelSerializer):
             'user': {'allow_null': True}
         }
 
-    body = serializers.CharField(required=True, write_only=True)
+    body = PostBodyField(required=True, write_only=True)
     slug = serializers.SlugField(max_length=255, required=False, default=DefaultSlugBuilder())
     poll_answers = PollAnswerSerializer(many=True)
 

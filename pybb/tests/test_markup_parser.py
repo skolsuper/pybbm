@@ -133,16 +133,10 @@ class MarkupParserTest(TestCase):
         _test_engine('markdown', text_to_quote_map)
 
     def test_body_cleaners(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        staff = User.objects.create_user('staff', 'staff@localhost', 'staff')
-        staff.is_staff = True
-        staff.save()
-
         from pybb.markup.base import rstrip_str
         cleaners_map = [
             ['pybb.markup.base.filter_blanks', 'some\n\n\n\ntext\n\nwith\nnew\nlines', 'some\ntext\n\nwith\nnew\nlines'],
             [rstrip_str, 'text    \n    \nwith whitespaces     ', 'text\n\nwith whitespaces'],
         ]
         for cleaner, source, dest in cleaners_map:
-            self.assertEqual(util.get_body_cleaner(cleaner)(user, source), dest)
-            self.assertEqual(util.get_body_cleaner(cleaner)(staff, source), source)
+            self.assertEqual(util.get_body_cleaner(cleaner)(source), dest)
