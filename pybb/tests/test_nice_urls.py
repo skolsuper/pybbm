@@ -3,7 +3,6 @@
 from __future__ import unicode_literals
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 from django.test import override_settings
 from rest_framework import status
@@ -26,7 +25,7 @@ class NiceUrlsTest(APITestCase):
         cls.category = Category.objects.create(name='foo')
         cls.forum = Forum.objects.create(name='xfoo', description='bar', category=cls.category)
         cls.topic = Topic.objects.create(name='etopic', forum=cls.forum, user=cls.user)
-        cls.post = Post.objects.create(topic=cls.topic, user=cls.user, body='bbcode [b]test[/b]')
+        cls.post = Post.objects.create(topic=cls.topic, user=cls.user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
 
     @classmethod
     def tearDownClass(cls):

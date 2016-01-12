@@ -87,7 +87,7 @@ class TopicPollVoteView(PermissionsMixin, CreateAPIView):
         if not pybb_topic_poll_not_voted(topic, self.request.user):
             raise ParseError
 
-        answers = [PollAnswerUser(answer=answer, user=self.request.user) for answer in request.data['answers']]
+        answers = [PollAnswerUser(poll_answer=answer, user=self.request.user) for answer in request.data['answers']]
         PollAnswerUser.objects.bulk_create(answers)
         serializer = TopicSerializer(topic)
         return Response(serializer.data, status=status.HTTP_200_OK)

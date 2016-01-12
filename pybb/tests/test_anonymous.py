@@ -25,7 +25,7 @@ class AnonymousTest(APITestCase):
         cls.category = Category.objects.create(name='foo')
         cls.forum = Forum.objects.create(name='xfoo', description='bar', category=cls.category)
         cls.topic = Topic.objects.create(name='etopic', forum=cls.forum, user=cls.user)
-        cls.post = Post.objects.create(body='body post', topic=cls.topic, user=cls.user)
+        cls.post = Post.objects.create(body='body post', topic=cls.topic, user=cls.user, user_ip='0.0.0.0')
         add_post_permission = Permission.objects.get_by_natural_key('add_post', 'pybb', 'post')
         cls.user.user_permissions.add(add_post_permission)
 
@@ -96,7 +96,7 @@ class AnonymousTest(APITestCase):
         self.forum = Forum.objects.create(name='xfoo', description='bar', category=self.category)
         self.topic = Topic.objects.create(name='etopic', forum=self.forum, user=self.user)
         if post:
-            self.post = Post.objects.create(topic=self.topic, user=self.user, body='bbcode [b]test[/b]')
+            self.post = Post.objects.create(topic=self.topic, user=self.user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
 
     def get_form_values(self, response, form="post-form"):
         return dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % form)[0].form_values())

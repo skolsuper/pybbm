@@ -20,15 +20,17 @@ class HiddenCategoryTest(TestCase):
     def setUpClass(cls):
         super(HiddenCategoryTest, cls).setUpClass()
         # create users
-        cls.staff = User.objects.create_user('staff', 'staff@localhost', 'staff', is_staff=True)
-        cls.no_staff = User.objects.create_user('nostaff', 'nostaff@localhost', 'nostaff', is_staff=False)
+        cls.staff = User.objects.create_user('staff', 'staff@localhost', 'staff')
+        cls.staff.is_staff = True
+        cls.staff.save()
+        cls.no_staff = User.objects.create_user('nostaff', 'nostaff@localhost', 'nostaff')
 
         # create topic, post in hidden category
         cls.category = Category(name='private', hidden=True)
         cls.category.save()
         cls.forum = Forum.objects.create(name='priv1', category=cls.category)
         cls.topic = Topic.objects.create(name='a topic', forum=cls.forum, user=cls.staff)
-        cls.post = Post.objects.create(body='body post', topic=cls.topic, user=cls.staff, on_moderation=True)
+        cls.post = Post.objects.create(body='body post', topic=cls.topic, user=cls.staff, on_moderation=True, user_ip='0.0.0.0')
 
         cls.factory = RequestFactory()
 
@@ -128,8 +130,7 @@ class HiddenCategoryTest(TestCase):
         user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
         profile = getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME, None)
         self.assertIsNotNone(profile)
-        post = Post(topic=self.topic, user=user, body='I \'ll be back')
-        post.save()
+        post = Post(topic=self.topic, user=user, body='I \'ll be back', user_ip='0.0.0.0')
         user_pk = user.pk
         profile_pk = profile.pk
         post_pk = post.pk
@@ -150,7 +151,7 @@ class HiddenCategoryTest(TestCase):
         self.forum = Forum.objects.create(name='xfoo', description='bar', category=self.category)
         self.topic = Topic.objects.create(name='etopic', forum=self.forum, user=self.user)
         if post:
-            self.post = Post.objects.create(topic=self.topic, user=self.user, body='bbcode [b]test[/b]')
+            self.post = Post.objects.create(topic=self.topic, user=self.user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
 
     def get_form_values(self, response, form="post-form"):
         return dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % form)[0].form_values())

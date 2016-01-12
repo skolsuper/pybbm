@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from django.db import migrations, models
+import annoying.fields
 import django.utils.timezone
 from django.conf import settings
+from django.db import migrations, models
+
 import pybb.util
-import annoying.fields
 
 
 class Migration(migrations.Migration):
@@ -94,7 +95,7 @@ class Migration(migrations.Migration):
                 ('body', models.TextField(verbose_name='Message')),
                 ('created', models.DateTimeField(auto_now_add=True, verbose_name='Created', db_index=True)),
                 ('updated', models.DateTimeField(default=django.utils.timezone.now, verbose_name='Updated', blank=True)),
-                ('user_ip', models.IPAddressField(default='0.0.0.0', verbose_name='User IP', blank=True)),
+                ('user_ip', models.GenericIPAddressField(verbose_name='User IP')),
                 ('on_moderation', models.BooleanField(default=False, verbose_name='On moderation')),
                 ('attachment', models.FileField(upload_to=pybb.util.FilePathGenerator(to=b'pybb_upload/attachments'), verbose_name='Attachment', blank=True)),
             ],

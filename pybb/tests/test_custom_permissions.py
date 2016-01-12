@@ -5,11 +5,10 @@ from __future__ import unicode_literals
 from django.core.urlresolvers import reverse
 from django.db.models import Q
 from django.test import override_settings
-from lxml import html
 from rest_framework.test import APITestCase
 
 from pybb import permissions
-from pybb.models import Category, Forum, Topic, Post, PollAnswer
+from pybb.models import Category, Forum, Topic, Post
 from pybb.tests.utils import User
 
 
@@ -69,7 +68,7 @@ class CustomPermissionHandlerTest(APITestCase):
         Topic.objects.create(user=self.user, forum=f_hid, name='hidden topic')
         Topic.objects.create(user=self.user, forum=f_hid, name='hidden closed topic')
         for t in Topic.objects.all():
-            Post.objects.create(user=self.user, topic=t, body='test')
+            Post.objects.create(user=self.user, topic=t, body='test', user_ip='0.0.0.0')
         Topic.objects.filter(name__contains='closed').update(closed=True)
 
         topics = Topic.objects.all()
@@ -96,7 +95,7 @@ class CustomPermissionHandlerTest(APITestCase):
         Topic.objects.create(user=self.user, forum=f_hid, name='hidden topic')
         Topic.objects.create(user=self.user, forum=f_hid, name='hidden closed topic')
         for t in Topic.objects.all():
-            Post.objects.create(user=self.user, topic=t, body='test')
+            Post.objects.create(user=self.user, topic=t, body='test', user_ip='0.0.0.0')
         Topic.objects.filter(name__contains='closed').update(closed=True)
 
         self.client.force_authenticate()

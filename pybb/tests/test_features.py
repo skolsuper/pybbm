@@ -3,13 +3,12 @@
 from __future__ import unicode_literals
 
 import datetime
-from pydash import py_
-
 from django.conf import settings
 from django.core import mail
 from django.core.urlresolvers import reverse
 from django.test import skipUnlessDBFeature, Client, override_settings
 from lxml import html
+from pydash import py_
 from rest_framework.test import APITestCase, APIClient
 
 from pybb import util
@@ -101,7 +100,7 @@ class FeaturesTest(APITestCase):
         category = Category.objects.create(name='foo')
         forum = Forum.objects.create(name='xfoo', description='bar', category=category)
         topic = Topic.objects.create(name='etopic', forum=forum, user=user)
-        post = Post(topic=topic, user=user, body='bbcode [b]test[/b]')
+        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
         post.save()
         post.delete()
         Topic.objects.get(id=topic.id)
@@ -113,10 +112,8 @@ class FeaturesTest(APITestCase):
         forum = Forum.objects.create(name='xfoo', description='bar', category=category)
         topic = Topic(name='xtopic', forum=forum, user=user)
         topic.save()
-        post = Post(topic=topic, user=user, body='one')
-        post.save()
-        post = Post(topic=topic, user=user, body='two')
-        post.save()
+        Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
+        post = Post.objects.create(topic=topic, user=user, body='two', user_ip='0.0.0.0')
         post.delete()
         Topic.objects.get(id=topic.id)
         Forum.objects.get(id=forum.id)
@@ -129,9 +126,7 @@ class FeaturesTest(APITestCase):
         forum = Forum.objects.create(name='xfoo', description='bar', category=category)
         topic = Topic(name='xtopic', forum=forum, user=user)
         topic.save()
-        post = Post(topic=topic, user=user, body='one')
-        post.save()
-        post = Post.objects.get(id=post.id)
+        post = Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
         self.assertAlmostEqual(forum.updated, post.created, delta=datetime.timedelta(milliseconds=50))
 
     @skipUnlessDBFeature('supports_microsecond_precision')
@@ -141,8 +136,7 @@ class FeaturesTest(APITestCase):
         forum = Forum.objects.create(name='xfoo', description='bar', category=category)
         topic = Topic(name='xtopic', forum=forum, user=user)
         topic.save()
-        post = Post(topic=topic, user=user, body='one')
-        post.save()
+        post = Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
         client = Client()
         client.login(username='zeus', password='zeus')
         # Topic status
@@ -293,7 +287,7 @@ class FeaturesTest(APITestCase):
         topic_1 = Topic.objects.create(name='xtopic', forum=forum, user=user)
         topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
 
-        Post(topic=topic_2, user=user, body='one').save()
+        Post.objects.create(topic=topic_2, user=user, body='one', user_ip='0.0.0.0')
 
         forum_2 = Forum(name='forum_2', description='bar', category=self.category)
         forum_2.save()
@@ -349,9 +343,9 @@ class FeaturesTest(APITestCase):
         forum_2 = Forum.objects.create(name='forum_2', description='forum2', category=category)
         topic_3 = Topic.objects.create(name='topic_2', forum=forum_2, user=user)
 
-        Post(topic=topic_1, user=self.user, body='one').save()
-        Post(topic=topic_2, user=self.user, body='two').save()
-        Post(topic=topic_3, user=self.user, body='three').save()
+        Post.objects.create(topic=topic_1, user=user, body='one', user_ip='0.0.0.0').save()
+        Post.objects.create(topic=topic_2, user=user, body='two', user_ip='0.0.0.0').save()
+        Post.objects.create(topic=topic_3, user=user, body='three', user_ip='0.0.0.0').save()
 
         user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
         client_ann = Client()
@@ -409,9 +403,9 @@ class FeaturesTest(APITestCase):
         topic_2 = Topic.objects.create(name='topic_2', forum=forum_child1, user=user)
         topic_3 = Topic.objects.create(name='topic_3', forum=forum_child2, user=user)
 
-        Post(topic=topic_1, user=user, body='one').save()
-        Post(topic=topic_2, user=user, body='two').save()
-        Post(topic=topic_3, user=user, body='three').save()
+        Post.objects.create(topic=topic_1, user=user, body='one', user_ip='0.0.0.0')
+        Post.objects.create(topic=topic_2, user=user, body='two', user_ip='0.0.0.0')
+        Post.objects.create(topic=topic_3, user=user, body='three', user_ip='0.0.0.0')
 
         user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
         client_ann = Client()
@@ -456,8 +450,8 @@ class FeaturesTest(APITestCase):
         topic_1 = Topic.objects.create(name='t1', forum=forum_1, user=user)
         topic_2 = Topic.objects.create(name='t2', forum=forum_2, user=user)
 
-        Post.objects.create(topic=topic_1, user=user, body='one')
-        Post.objects.create(topic=topic_2, user=user, body='two')
+        Post.objects.create(topic=topic_1, user=user, body='one', user_ip='0.0.0.0')
+        Post.objects.create(topic=topic_2, user=user, body='two', user_ip='0.0.0.0')
 
         user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
         client_ann = Client()
@@ -472,7 +466,7 @@ class FeaturesTest(APITestCase):
         self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_ann)], [False, False])
         self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_ann)], [False, False])
 
-        post = Post.objects.create(topic=topic_1, user=user, body='three')
+        post = Post.objects.create(topic=topic_1, user=user, body='three', user_ip='0.0.0.0')
         post = Post.objects.get(id=post.id)  # get post with timestamp from DB
 
         topic_1 = Topic.objects.get(id=topic_1.id)
@@ -511,9 +505,9 @@ class FeaturesTest(APITestCase):
         topic_1 = Topic.objects.create(name='topic_1', forum=forum_1, user=user)
         topic_2 = Topic.objects.create(name='topic_2', forum=forum_1, user=user)
 
-        post_1_1 = Post.objects.create(topic=topic_1, user=user, body='1_1')
-        post_1_2 = Post.objects.create(topic=topic_1, user=user, body='1_2')
-        post_2_1 = Post.objects.create(topic=topic_2, user=user, body='2_1')
+        post_1_1 = Post.objects.create(topic=topic_1, user=user, body='1_1', user_ip='0.0.0.0')
+        post_1_2 = Post.objects.create(topic=topic_1, user=user, body='1_2', user_ip='0.0.0.0')
+        post_2_1 = Post.objects.create(topic=topic_2, user=user, body='2_1', user_ip='0.0.0.0')
 
         user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
         client_ann = Client()
@@ -528,8 +522,8 @@ class FeaturesTest(APITestCase):
         response = client_ann.get(topic_2.get_absolute_url(), data={'first-unread': 1}, follow=True)
         self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_2.get_absolute_url(), 1, post_2_1.id))
 
-        post_1_3 = Post.objects.create(topic=topic_1, user=user, body='1_3')
-        post_1_4 = Post.objects.create(topic=topic_1, user=user, body='1_4')
+        post_1_3 = Post.objects.create(topic=topic_1, user=user, body='1_3', user_ip='0.0.0.0')
+        post_1_4 = Post.objects.create(topic=topic_1, user=user, body='1_4', user_ip='0.0.0.0')
 
         response = client_ann.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
         self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_1.get_absolute_url(), 1, post_1_3.id))
@@ -546,7 +540,7 @@ class FeaturesTest(APITestCase):
 
         topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
 
-        Post.objects.create(topic=topic_1, user=user, body='Something completely different')
+        Post.objects.create(topic=topic_1, user=user, body='Something completely different', user_ip='0.0.0.0')
         topic_list_url = reverse('pybb:topic_list')
 
         self.client.force_authenticate(user)
@@ -631,8 +625,8 @@ class FeaturesTest(APITestCase):
         forum = Forum.objects.create(category=category, name='foo')
         user = User.objects.create_user('test', 'test@localhost', 'test')
         topic = Topic.objects.create(name='topic', forum=forum, user=user)
-        p1 = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]')
-        p2 = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]')
+        p1 = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
+        p2 = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
         self.client.force_authenticate(superuser)
         response = self.client.get(reverse('pybb:block_user', args=[user.username]), follow=True)
         self.assertEqual(response.status_code, 405)
@@ -688,7 +682,7 @@ class FeaturesTest(APITestCase):
         category = Category.objects.create(name='foo')
         forum = Forum.objects.create(category=category, name='foo')
         topic = Topic.objects.create(name='topic', forum=forum, user=user)
-        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]')
+        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
         self.client.force_authenticate(user)
         response = self.client.get(reverse('pybb:add_post', kwargs={'topic_id': topic.id}),
                                    data={'quote_id': post.id, 'body': 'test tracking'}, follow=True)
@@ -700,7 +694,7 @@ class FeaturesTest(APITestCase):
         category = Category.objects.create(name='foo')
         forum = Forum.objects.create(category=category, name='foo')
         topic = Topic.objects.create(name='topic', forum=forum, user=user)
-        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]')
+        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
         self.client.force_authenticate(user)
         edit_post_url = reverse('pybb:edit_post', kwargs={'pk': post.id})
         values = {
@@ -730,8 +724,8 @@ class FeaturesTest(APITestCase):
         category = Category.objects.create(name='foo')
         forum = Forum.objects.create(category=category, name='foo')
         topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
-        topic_head = Post.objects.create(topic=topic, user=superuser, body='test topic head')
-        post = Post.objects.create(topic=topic, user=superuser, body='test to delete')
+        topic_head = Post.objects.create(topic=topic, user=superuser, body='test topic head', user_ip='0.0.0.0')
+        post = Post.objects.create(topic=topic, user=superuser, body='test to delete', user_ip='0.0.0.0')
         self.client.force_authenticate(superuser)
         response = self.client.delete(reverse('pybb:delete_post', args=[post.id]), follow=True)
         self.assertEqual(response.status_code, 204)
@@ -898,8 +892,7 @@ class FeaturesTest(APITestCase):
         forum = Forum.objects.create(category=category, name='foo')
         topic = Topic(name='new topic', forum=forum, user=user)
         topic.save()
-        post = Post(topic=topic, user=user, body='bbcode [b]test[/b]')
-        post.save()
+        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
         client = Client()
         response = client.get(forum.get_absolute_url())
         self.assertEqual(response.context['topic_list'][0], topic)
@@ -914,14 +907,14 @@ class FeaturesTest(APITestCase):
         category = Category.objects.create(name='foo')
         forum_1 = Forum.objects.create(name='new forum', category=category)
         topic_1 = Topic.objects.create(name='new topic', forum=forum_1, user=user)
-        post_1 = Post.objects.create(topic=topic_1, user=user, body='test')
+        post_1 = Post.objects.create(topic=topic_1, user=user, body='test', user_ip='0.0.0.0')
         post_1 = Post.objects.get(id=post_1.id)
 
         self.assertAlmostEqual(topic_1.updated, post_1.created, delta=datetime.timedelta(milliseconds=50))
         self.assertAlmostEqual(forum_1.updated, post_1.created, delta=datetime.timedelta(milliseconds=50))
 
         topic_2 = Topic.objects.create(name='another topic', forum=forum_1, user=user)
-        post_2 = Post.objects.create(topic=topic_2, user=user, body='another test')
+        post_2 = Post.objects.create(topic=topic_2, user=user, body='another test', user_ip='0.0.0.0')
         post_2 = Post.objects.get(id=post_2.id)
 
         self.assertAlmostEqual(topic_2.updated, post_2.created, delta=datetime.timedelta(milliseconds=50))
@@ -970,8 +963,7 @@ class FeaturesTest(APITestCase):
         forum = Forum.objects.create(category=category, name='foo')
         topic = Topic(name='etopic', forum=forum, user=user)
         topic.save()
-        post = Post(topic=topic, user=user, body='test') # another post
-        post.save()
+        post = Post.objects.create(topic=topic, user=user, body='test', user_ip='0.0.0.0')
         self.assertEqual(util.get_pybb_profile(user).user.posts.count(), 1)
         post.body = 'test2'
         post.save()
@@ -996,7 +988,7 @@ class FeaturesTest(APITestCase):
         forum = Forum.objects.create(category=category, name='foo')
         topic = Topic.objects.create(name='topic', user=user, forum=forum)
         for i in range(10):
-            Post.objects.create(body='post%s' % i, user=user, topic=topic)
+            Post.objects.create(body='post%s' % i, user=user, topic=topic, user_ip='0.0.0.0')
         latest_topics = pybb_get_latest_posts(context=None, user=user)
         self.assertEqual(len(latest_topics), 5)
         self.assertEqual(latest_topics[0].body, 'post9')
