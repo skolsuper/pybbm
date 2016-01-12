@@ -48,7 +48,13 @@ class TopicSerializer(serializers.ModelSerializer):
         instance = super(TopicSerializer, self).save(**kwargs)
         for answer in poll_answers:
             PollAnswer.objects.create(topic=instance, text=answer['text'])
-        Post.objects.create(topic=instance, user=instance.user, body=post_body, on_moderation=instance.on_moderation)
+        Post.objects.create(
+            topic=instance,
+            user=instance.user,
+            user_ip=self.context['request'].META['REMOTE_ADDR'],
+            body=post_body,
+            on_moderation=instance.on_moderation
+        )
         return instance
 
     def run_validators(self, value, unique_slug_fail_count=0):
