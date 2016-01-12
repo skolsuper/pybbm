@@ -4,8 +4,8 @@ from __future__ import unicode_literals
 
 from django.test import TestCase, override_settings
 
+import pybb.markup
 from pybb import util
-from pybb.tests.utils import User
 
 test_markup_engines_setting = {
     'bbcode': 'pybb.markup.bbcode.BBCodeParser',  # default parser
@@ -20,13 +20,13 @@ test_markup_engines_setting = {
 class MarkupParserTest(TestCase):
 
     def tearDown(self):
-        util._MARKUP_ENGINES = {}
+        pybb.markup._MARKUP_ENGINES = {}
 
     def test_markup_engines(self):
 
         def _test_engine(parser_name, text_to_html_map):
             for item in text_to_html_map:
-                self.assertIn(util.get_markup_engine(parser_name).format(item[0]), item[1:])
+                self.assertIn(pybb.markup.get_markup_engine(parser_name).format(item[0]), item[1:])
 
         text_to_html_map = [
             ['[b]bold[/b]', '<strong>bold</strong>'],
@@ -107,8 +107,8 @@ class MarkupParserTest(TestCase):
 
         def _test_engine(parser_name, text_to_quote_map):
             for item in text_to_quote_map:
-                self.assertEqual(util.get_markup_engine(parser_name).quote(item[0]), item[1])
-                self.assertEqual(util.get_markup_engine(parser_name).quote(item[0], 'username'), item[2])
+                self.assertEqual(pybb.markup.get_markup_engine(parser_name).quote(item[0]), item[1])
+                self.assertEqual(pybb.markup.get_markup_engine(parser_name).quote(item[0], 'username'), item[2])
 
         text_to_quote_map = [
             ['quote text', '[quote=""]quote text[/quote]\n', '[quote="username"]quote text[/quote]\n']

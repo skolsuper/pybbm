@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
+import pybb.markup
 from pybb import settings as defaults, util
 from pybb.compat import get_image_field_class
 
@@ -45,7 +46,7 @@ class PybbProfile(models.Model):
                                         default=defaults.settings.PYBB_DEFAULT_AUTOSUBSCRIBE)
 
     def save(self, *args, **kwargs):
-        self.signature_html = util.get_markup_engine().format(self.signature)
+        self.signature_html = pybb.markup.get_markup_engine().format(self.signature)
         super(PybbProfile, self).save(*args, **kwargs)
 
     @property

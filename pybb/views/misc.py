@@ -13,12 +13,12 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from pybb.markup import get_markup_engine
 from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser
 from pybb.permissions import get_perms, PermissionsMixin
 from pybb.serializers import TopicSerializer
 from pybb.settings import settings
 from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
-from pybb.util import get_markup_engine
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD

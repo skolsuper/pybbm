@@ -11,33 +11,7 @@ from django.utils.six import string_types
 from django.utils.translation import ugettext as _
 
 from pybb.compat import slugify, get_related_model_class
-from pybb.markup.base import BaseParser
 from pybb.settings import settings
-
-_MARKUP_ENGINES = {}
-
-
-def get_markup_engine(name=None):
-    """
-    Returns the named markup engine instance, or the default one if name is not given.
-    This function will replace _get_markup_formatter and _get_markup_quoter in the
-    next major release.
-    """
-    name = name or settings.PYBB_MARKUP
-    engine = _MARKUP_ENGINES.get(name)
-    if engine:
-        return engine
-    engines_dict = settings.PYBB_MARKUP_ENGINES_PATHS
-    if name not in engines_dict:
-        engine = BaseParser()
-    else:
-        engine = engines_dict[name]
-        # TODO In a near future, we should stop to support callable
-        if isinstance(engine, string_types):
-            # This is a path, import it
-            engine = import_string(engine)()
-    _MARKUP_ENGINES[name] = engine
-    return engine
 
 
 def get_body_cleaner(name):
