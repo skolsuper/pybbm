@@ -26,7 +26,7 @@ class AttachmentTest(APITestCase):
         self.client.force_authenticate(user)
         with open(FILE_NAME, 'rb') as fp:
             values = {'topic': topic.id, 'body': 'test attachment', 'attachment': fp}
-            response = self.client.post(add_post_url, values, follow=True)
+            response = self.client.post(add_post_url, values, format='multipart')
         self.assertEqual(response.status_code, 201)
         self.assertIn('attachment', response.data)
         post = Post.objects.get(body='test attachment')

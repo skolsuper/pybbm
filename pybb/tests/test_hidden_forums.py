@@ -130,7 +130,7 @@ class HiddenCategoryTest(TestCase):
         user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
         profile = getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME, None)
         self.assertIsNotNone(profile)
-        post = Post(topic=self.topic, user=user, body='I \'ll be back', user_ip='0.0.0.0')
+        post = Post.objects.create(topic=self.topic, user=user, body='I \'ll be back', user_ip='0.0.0.0')
         user_pk = user.pk
         profile_pk = profile.pk
         post_pk = post.pk

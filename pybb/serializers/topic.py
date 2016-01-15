@@ -27,6 +27,20 @@ class PollAnswerSerializer(serializers.Serializer):
     votes = serializers.IntegerField(read_only=True)
     votes_percent = serializers.FloatField(read_only=True)
 
+    @property
+    def data(self):
+        return super(PollAnswerSerializer, self).data()
+    
+    def validate(self, attrs):
+        return super(PollAnswerSerializer, self).validate(attrs)
+    
+    def to_internal_value(self, data):
+        return super(PollAnswerSerializer, self).to_internal_value(data)
+
+    @classmethod
+    def many_init(cls, *args, **kwargs):
+        return super(PollAnswerSerializer, cls).many_init(*args, **kwargs)
+
 
 class TopicSerializer(serializers.ModelSerializer):
 
@@ -40,11 +54,27 @@ class TopicSerializer(serializers.ModelSerializer):
 
     body = PostBodyField(required=True, write_only=True)
     slug = serializers.SlugField(max_length=255, required=False, default=DefaultSlugBuilder())
-    poll_answers = PollAnswerSerializer(many=True)
+    poll_answers = PollAnswerSerializer(many=True, required=False)
+    
+    def __init__(self, *args, **kwargs):
+        super(TopicSerializer, self).__init__(*args, **kwargs)
+
+    def validate(self, attrs):
+        num_answers = len(attrs.get('poll_answers', []))
+        if 'poll_type' not in attrs or attrs['poll_type'] == Topic.POLL_TYPE_NONE:
+            if num_answers > 0:
+                raise ValidationError(_('Poll type none selected but poll answers provided.'))
+        else:
+            if num_answers == 0:
+                raise ValidationError(_('Poll selected but no answers provided.'))
+            elif num_answers > settings.PYBB_POLL_MAX_ANSWERS:
+                raise ValidationError(
+                    _('More than the maximum of {} answers provided'.format(settings.PYBB_POLL_MAX_ANSWERS)))
+        return attrs
 
     def save(self, **kwargs):
         post_body = self.validated_data.pop('body')
-        poll_answers = self.validated_data.pop('poll_answers', None)
+        poll_answers = self.validated_data.pop('poll_answers', [])
         instance = super(TopicSerializer, self).save(**kwargs)
         for answer in poll_answers:
             PollAnswer.objects.create(topic=instance, text=answer['text'])

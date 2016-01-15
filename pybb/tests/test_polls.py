@@ -3,65 +3,66 @@
 from __future__ import unicode_literals
 
 from django.core.urlresolvers import reverse
-from django.test import TestCase
+from django.test import override_settings
 from lxml import html
+from rest_framework.test import APITestCase
 
 from pybb.models import Topic, PollAnswer, Category, Forum, Post
-from pybb.settings import settings as pybb_settings
 from pybb.tests.utils import User
 
 
-class PollTest(TestCase):
-    def setUp(self):
-        self.create_user()
-        self.create_initial()
-        self.PYBB_POLL_MAX_ANSWERS = pybb_settings.PYBB_POLL_MAX_ANSWERS
-        pybb_settings.PYBB_POLL_MAX_ANSWERS = 2
+@override_settings(PYBB_POLL_MAX_ANSWERS=2)
+class PollTest(APITestCase):
 
     def test_poll_add(self):
-        add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
-        self.login_client()
-        response = self.client.get(add_topic_url)
-        values = self.get_form_values(response)
-        values['body'] = 'test poll body'
-        values['name'] = 'test poll name'
-        values['poll_type'] = 0 # poll_type = None, create topic without poll answers
-        values['poll_question'] = 'q1'
-        values['poll_answers-0-text'] = 'answer1'
-        values['poll_answers-1-text'] = 'answer2'
-        values['poll_answers-TOTAL_FORMS'] = 2
-        response = self.client.post(add_topic_url, values, follow=True)
-        self.assertEqual(response.status_code, 200)
-        new_topic = Topic.objects.get(name='test poll name')
-        self.assertIsNone(new_topic.poll_question)
-        self.assertFalse(PollAnswer.objects.filter(topic=new_topic).exists()) # no answers here
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        add_topic_url = reverse('pybb:topic_list')
+        self.client.force_authenticate(user)
+        values = {
+            'forum': forum.id,
+            'body': 'test poll body',
+            'name': 'test poll name',
+            'poll_type': Topic.POLL_TYPE_NONE,
+            'poll_question': 'q1',
+            'poll_answers': [
+                {'text': 'answer1'},
+                {'text': 'answer2'}
+            ]
+        }
+        response = self.client.post(add_topic_url, values)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Topic.objects.filter(name='test poll name').exists())
 
         values['name'] = 'test poll name 1'
-        values['poll_type'] = 1
-        values['poll_answers-0-text'] = 'answer1' # not enough answers
-        values['poll_answers-TOTAL_FORMS'] = 1
-        response = self.client.post(add_topic_url, values, follow=True)
+        values['poll_type'] = Topic.POLL_TYPE_SINGLE
+        values['poll_answers'] = {'text': 'answer1'}  # not enough answers
+        response = self.client.post(add_topic_url, values)
+        self.assertEqual(response.status_code, 400)
         self.assertFalse(Topic.objects.filter(name='test poll name 1').exists())
 
-        values['name'] = 'test poll name 1'
+        values['name'] = 'test poll name 2'
         values['poll_type'] = 1
-        values['poll_answers-0-text'] = 'answer1' # too many answers
-        values['poll_answers-1-text'] = 'answer2'
-        values['poll_answers-2-text'] = 'answer3'
-        values['poll_answers-TOTAL_FORMS'] = 3
+        values['poll_answers'] = [
+            {'text': 'answer1'},  # too many answers
+            {'text': 'answer2'},
+            {'text': 'answer3'}
+        ]
         response = self.client.post(add_topic_url, values, follow=True)
-        self.assertFalse(Topic.objects.filter(name='test poll name 1').exists())
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Topic.objects.filter(name='test poll name 2').exists())
 
-        values['name'] = 'test poll name 1'
-        values['poll_type'] = 1 # poll type = single choice, create answers
-        values['poll_question'] = 'q1'
-        values['poll_answers-0-text'] = 'answer1' # two answers - what do we need to create poll
-        values['poll_answers-1-text'] = 'answer2'
-        values['poll_answers-TOTAL_FORMS'] = 2
+        values['name'] = 'test poll name 3'
+        values['poll_type'] = Topic.POLL_TYPE_SINGLE
+        values['poll_answers'] = [
+            {'text': 'answer1'},  # two answers - what do we need to create poll
+            {'text': 'answer2'}
+        ]
         response = self.client.post(add_topic_url, values, follow=True)
-        self.assertEqual(response.status_code, 200)
-        new_topic = Topic.objects.get(name='test poll name 1')
-        self.assertEqual(new_topic.poll_question, 'q1')
+        self.assertEqual(response.status_code, 201)
+        new_topic = Topic.objects.get(name='test poll name 3')
+        self.assertEqual(new_topic.poll_answers.first().text, 'answer1')
         self.assertEqual(PollAnswer.objects.filter(topic=new_topic).count(), 2)
 
     def test_regression_adding_poll_with_removed_answers(self):
@@ -207,12 +208,6 @@ class PollTest(TestCase):
         values = {'answers': my_answer.id}
         response = self.client.post(vote_url, data=values, follow=True)
         self.assertEqual(response.status_code, 403)
-
-    def tearDown(self):
-        pybb_settings.PYBB_POLL_MAX_ANSWERS = self.PYBB_POLL_MAX_ANSWERS
-
-    def create_user(self):
-        self.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
 
     def login_client(self, username='zeus', password='zeus'):
         self.client.login(username=username, password=password)
