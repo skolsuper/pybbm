@@ -8,7 +8,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied
-from rest_framework.generics import RetrieveAPIView, ListAPIView, ListCreateAPIView
+from rest_framework.generics import RetrieveAPIView, ListAPIView, ListCreateAPIView, UpdateAPIView
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
@@ -103,6 +103,30 @@ class ListCreateTopicsView(PermissionsMixin, ListCreateAPIView):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+
+class UpdateTopicView(PermissionsMixin, UpdateAPIView):
+
+    queryset = Topic.objects.all()
+    serializer_class = TopicSerializer
+
+    def get_object(self):
+        qs = self.get_queryset()
+        topic = get_object_or_404(qs, pk=self.kwargs['pk'])
+        if not self.perms.may_edit_post(self.request.user, topic.head):
+            raise PermissionDenied
+        return topic
+
+    def update(self, request, *args, **kwargs):
+        data = request.data.copy()
+        instance = self.get_object()
+        data['user'] = instance.user.pk
+        serializer = self.get_serializer(instance, data=data)
+        serializer.is_valid(raise_exception=True)
+        instance.poll_answers.all().delete()  # partial updates not allowed, this is easiest
+        instance.poll_question = ''
+        instance.save()
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
 class TopicView(PermissionsMixin, RetrieveAPIView):
     pagination_class = PybbPostPagination

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
+
 from django.conf.urls import url
 
 from pybb.feeds import LastPosts, LastTopics
@@ -9,7 +10,7 @@ from pybb.views import CategoryList, CategoryView, ForumView, TopicView,\
     DeletePostView, StickTopicView, UnstickTopicView, CloseTopicView,\
     OpenTopicView, moderate_post, TopicPollVoteView, ListCreateTopicsView,\
     UserTopics, UserPosts, topic_cancel_poll_vote, block_user, unblock_user,\
-    delete_subscription, add_subscription, mark_all_as_read, preview_post
+    delete_subscription, add_subscription, mark_all_as_read, preview_post, UpdateTopicView
 
 urlpatterns = [
     # Syndication feeds
@@ -33,6 +34,7 @@ urlpatterns = [
     # Topic
     url('^topics/$', ListCreateTopicsView.as_view(), name='topic_list'),
     url('^topics/(?P<pk>\d+)/$', TopicView.as_view(), name='topic'),
+    url('^topics/(?P<pk>\d+)/edit/$', UpdateTopicView.as_view(), name='edit_topic'),
     url('^topics/(?P<pk>\d+)/stick/$', StickTopicView.as_view(), name='stick_topic'),
     url('^topics/(?P<pk>\d+)/unstick/$', UnstickTopicView.as_view(), name='unstick_topic'),
     url('^topics/(?P<pk>\d+)/close/$', CloseTopicView.as_view(), name='close_topic'),

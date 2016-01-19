@@ -110,45 +110,67 @@ class PollTest(APITestCase):
         self.assertEqual(PollAnswer.objects.filter(topic=new_topic).count(), 2)
 
     def test_poll_edit(self):
-        edit_topic_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})
-        self.login_client()
-        response = self.client.get(edit_topic_url)
-        values = self.get_form_values(response)
-        values['poll_type'] = 1 # add_poll
-        values['poll_question'] = 'q1'
-        values['poll_answers-0-text'] = 'answer1'
-        values['poll_answers-1-text'] = 'answer2'
-        values['poll_answers-TOTAL_FORMS'] = 2
-        response = self.client.post(edit_topic_url, values, follow=True)
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        poll = Topic.objects.create(
+            forum=forum,
+            user=user,
+            poll_type=Topic.POLL_TYPE_SINGLE,
+            poll_question='Hows it hanging?',
+        )
+        for answer in ('A little to the left', 'None of your business'):
+            PollAnswer.objects.create(topic=poll, text=answer)
+        Post.objects.create(topic=poll, user=user, user_ip='0.0.0.0',
+                            body='Head post is necessary because default edit permission check uses it')
+        edit_topic_url = reverse('pybb:edit_topic', kwargs={'pk': poll.pk})
+        self.client.force_authenticate(user)
+        values = {
+            'forum': forum.pk,
+            'name': 'test poll',
+            'body': 'edited head post body',
+            'poll_type': Topic.POLL_TYPE_SINGLE,
+            'poll_question': 'q1',
+            'poll_answers': [
+                {'text': 'answer1'},
+                {'text': 'answer2'}
+            ]
+        }
+        response = self.client.put(edit_topic_url, values)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).poll_type, 1)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).poll_question, 'q1')
-        self.assertEqual(PollAnswer.objects.filter(topic=self.topic).count(), 2)
+        poll = Topic.objects.get(id=poll.id)
+        self.assertEqual(poll.poll_type, Topic.POLL_TYPE_SINGLE)
+        self.assertEqual(poll.poll_question, 'q1')
+        self.assertEqual(PollAnswer.objects.filter(topic=poll).count(), 2)
 
-        values = self.get_form_values(self.client.get(edit_topic_url))
-        values['poll_type'] = 2 # change_poll type
-        values['poll_question'] = 'q100' # change poll question
-        values['poll_answers-0-text'] = 'answer100' # change poll answers
-        values['poll_answers-1-text'] = 'answer200'
-        values['poll_answers-TOTAL_FORMS'] = 2
-        response = self.client.post(edit_topic_url, values, follow=True)
+        values.update(**{
+            'name': 'edited test poll',
+            'poll_type': Topic.POLL_TYPE_MULTIPLE,
+            'poll_question': 'q100',
+            'poll_answers': [
+                {'text': 'answer100'},
+                {'text': 'answer200'}
+            ]
+        })
+        response = self.client.put(edit_topic_url, values)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).poll_type, 2)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).poll_question, 'q100')
-        self.assertEqual(PollAnswer.objects.filter(topic=self.topic).count(), 2)
-        self.assertTrue(PollAnswer.objects.filter(text='answer100').exists())
-        self.assertTrue(PollAnswer.objects.filter(text='answer200').exists())
-        self.assertFalse(PollAnswer.objects.filter(text='answer1').exists())
-        self.assertFalse(PollAnswer.objects.filter(text='answer2').exists())
+        poll = Topic.objects.get(id=poll.id)
+        self.assertEqual(poll.poll_type, Topic.POLL_TYPE_MULTIPLE)
+        self.assertEqual(poll.poll_question, 'q100')
+        answers = poll.poll_answers.all()
+        self.assertEqual(len(answers), 2)
+        self.assertEqual(answers[0].text, 'answer100')
+        self.assertEqual(answers[1].text, 'answer200')
 
-        values['poll_type'] = 0 # remove poll
-        values['poll_answers-0-text'] = 'answer100' # no matter how many answers we provide
-        values['poll_answers-TOTAL_FORMS'] = 1
-        response = self.client.post(edit_topic_url, values, follow=True)
+        values['poll_type'] = Topic.POLL_TYPE_NONE
+        values.pop('poll_answers')
+        values.pop('poll_question')
+        response = self.client.put(edit_topic_url, values)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).poll_type, 0)
-        self.assertIsNone(Topic.objects.get(id=self.topic.id).poll_question)
-        self.assertEqual(PollAnswer.objects.filter(topic=self.topic).count(), 0)
+        poll = Topic.objects.get(id=poll.id)
+        self.assertEqual(poll.poll_type, Topic.POLL_TYPE_NONE)
+        self.assertEqual(poll.poll_question, '')
+        self.assertEqual(PollAnswer.objects.filter(topic=poll).count(), 0)
 
     def test_poll_voting(self):
         def recreate_poll(poll_type):
