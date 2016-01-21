@@ -30,7 +30,7 @@ class PollAnswer(models.Model):
     def votes_percent(self):
         topic_votes = self.topic.poll_votes()
         if topic_votes > 0:
-            return 1.0 * self.votes() / topic_votes * 100
+            return 1.0 * self.votes / topic_votes * 100
         else:
             return 0
 

@@ -7,7 +7,7 @@ from django.test import override_settings
 from lxml import html
 from rest_framework.test import APITestCase
 
-from pybb.models import Topic, PollAnswer, Category, Forum, Post
+from pybb.models import Topic, PollAnswer, Category, Forum, Post, PollAnswerUser
 from pybb.tests.utils import User
 
 
@@ -65,22 +65,22 @@ class PollTest(APITestCase):
         self.assertEqual(new_topic.poll_answers.first().text, 'answer1')
         self.assertEqual(PollAnswer.objects.filter(topic=new_topic).count(), 2)
 
-    def test_regression_adding_poll_with_removed_answers(self):
-        add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
-        self.login_client()
-        response = self.client.get(add_topic_url)
-        values = self.get_form_values(response)
-        values['body'] = 'test poll body'
-        values['name'] = 'test poll name'
-        values['poll_type'] = 1
-        values['poll_question'] = 'q1'
-        values['poll_answers-0-text'] = ''
-        values['poll_answers-0-DELETE'] = 'on'
-        values['poll_answers-1-text'] = ''
-        values['poll_answers-1-DELETE'] = 'on'
-        values['poll_answers-TOTAL_FORMS'] = 2
-        response = self.client.post(add_topic_url, values, follow=True)
-        self.assertEqual(response.status_code, 200)
+    def test_attempt_to_create_poll_with_no_answers(self):
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        add_topic_url = reverse('pybb:topic_list')
+        self.client.force_authenticate(user)
+        values = {
+            'forum': forum.id,
+            'body': 'test poll body',
+            'name': 'test poll name',
+            'poll_type': Topic.POLL_TYPE_SINGLE,
+            'poll_question': 'q1',
+            'poll_answers': []
+        }
+        response = self.client.post(add_topic_url, values)
+        self.assertEqual(response.status_code, 400)
         self.assertFalse(Topic.objects.filter(name='test poll name').exists())
 
     def test_regression_poll_deletion_after_second_post(self):
@@ -173,62 +173,82 @@ class PollTest(APITestCase):
         self.assertEqual(PollAnswer.objects.filter(topic=poll).count(), 0)
 
     def test_poll_voting(self):
-        def recreate_poll(poll_type):
-            self.topic.poll_type = poll_type
-            self.topic.save()
-            PollAnswer.objects.filter(topic=self.topic).delete()
-            PollAnswer.objects.create(topic=self.topic, text='answer1')
-            PollAnswer.objects.create(topic=self.topic, text='answer2')
-
-        self.login_client()
-        recreate_poll(poll_type=Topic.POLL_TYPE_SINGLE)
-        vote_url = reverse('pybb:topic_poll_vote', kwargs={'pk': self.topic.id})
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        poll = Topic.objects.create(
+            forum=forum,
+            user=user,
+            poll_type=Topic.POLL_TYPE_SINGLE,
+            poll_question='Hows it hanging?',
+        )
+        for answer in ('A little to the left', 'None of your business'):
+            PollAnswer.objects.create(topic=poll, text=answer)
+        Post.objects.create(topic=poll, user=user, user_ip='0.0.0.0',
+                            body='Head post is necessary because default edit permission check uses it')
+        vote_url = reverse('pybb:topic_poll_vote', kwargs={'pk': poll.id})
         my_answer = PollAnswer.objects.all()[0]
-        values = {'answers': my_answer.id}
-        response = self.client.post(vote_url, data=values, follow=True)
+        values = {'answers': [my_answer.id]}
+        self.client.force_authenticate(user)
+        response = self.client.post(vote_url, data=values)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).poll_votes(), 1)
-        self.assertEqual(PollAnswer.objects.get(id=my_answer.id).votes(), 1)
-        self.assertEqual(PollAnswer.objects.get(id=my_answer.id).votes_percent(), 100.0)
+        self.assertEqual(Topic.objects.get(id=poll.id).poll_votes(), 1)
+        poll_answer = PollAnswer.objects.get(id=my_answer.id)
+        self.assertEqual(poll_answer.votes, 1)
+        self.assertEqual(poll_answer.votes_percent, 100.0)
 
         # already voted
-        response = self.client.post(vote_url, data=values, follow=True)
-        self.assertEqual(response.status_code, 403) # bad request status
+        response = self.client.post(vote_url, data=values)
+        self.assertEqual(response.status_code, 403)  # bad request status
 
-        recreate_poll(poll_type=Topic.POLL_TYPE_MULTIPLE)
+        poll.poll_type = Topic.POLL_TYPE_MULTIPLE
+        poll.save()
+        PollAnswerUser.objects.filter(user=user).delete()
         values = {'answers': [a.id for a in PollAnswer.objects.all()]}
-        response = self.client.post(vote_url, data=values, follow=True)
+        response = self.client.post(vote_url, data=values)
         self.assertEqual(response.status_code, 200)
-        self.assertListEqual([a.votes() for a in PollAnswer.objects.all()], [1, 1])
-        self.assertListEqual([a.votes_percent() for a in PollAnswer.objects.all()], [50.0, 50.0])
+        poll_answers = PollAnswer.objects.all()
+        self.assertListEqual([a.votes for a in poll_answers], [1, 1])
+        self.assertListEqual([a.votes_percent for a in poll_answers], [50.0, 50.0])
 
-        response = self.client.post(vote_url, data=values, follow=True)
+        response = self.client.post(vote_url, data=values)
         self.assertEqual(response.status_code, 403)  # already voted
 
-        cancel_vote_url = reverse('pybb:topic_cancel_poll_vote', kwargs={'pk': self.topic.id})
-        response = self.client.post(cancel_vote_url, data=values, follow=True)
+        cancel_vote_url = reverse('pybb:topic_cancel_poll_vote', kwargs={'pk': poll.id})
+        response = self.client.post(cancel_vote_url, data=values)
         self.assertEqual(response.status_code, 200)
-        self.assertListEqual([a.votes() for a in PollAnswer.objects.all()], [0, 0])
-        self.assertListEqual([a.votes_percent() for a in PollAnswer.objects.all()], [0, 0])
+        poll_answers = PollAnswer.objects.all()
+        self.assertListEqual([a.votes for a in poll_answers], [0, 0])
+        self.assertListEqual([a.votes_percent for a in poll_answers], [0, 0])
 
-        response = self.client.post(vote_url, data=values, follow=True)
+        response = self.client.post(vote_url, data=values)
         self.assertEqual(response.status_code, 200)
-        self.assertListEqual([a.votes() for a in PollAnswer.objects.all()], [1, 1])
-        self.assertListEqual([a.votes_percent() for a in PollAnswer.objects.all()], [50.0, 50.0])
+        poll_answers = PollAnswer.objects.all()
+        self.assertListEqual([a.votes for a in poll_answers], [1, 1])
+        self.assertListEqual([a.votes_percent for a in poll_answers], [50.0, 50.0])
 
     def test_poll_voting_on_closed_topic(self):
-        self.login_client()
-        self.topic.poll_type = Topic.POLL_TYPE_SINGLE
-        self.topic.save()
-        PollAnswer.objects.create(topic=self.topic, text='answer1')
-        PollAnswer.objects.create(topic=self.topic, text='answer2')
-        self.topic.closed = True
-        self.topic.save()
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        poll = Topic.objects.create(
+            forum=forum,
+            user=user,
+            poll_type=Topic.POLL_TYPE_SINGLE,
+            poll_question='Hows it hanging?',
+        )
+        Post.objects.create(topic=poll, user=user, user_ip='0.0.0.0',
+                            body='Head post is necessary because default edit permission check uses it')
+        PollAnswer.objects.create(topic=poll, text='answer1')
+        PollAnswer.objects.create(topic=poll, text='answer2')
+        poll.closed = True
+        poll.save()
 
-        vote_url = reverse('pybb:topic_poll_vote', kwargs={'pk': self.topic.id})
+        vote_url = reverse('pybb:topic_poll_vote', kwargs={'pk': poll.id})
         my_answer = PollAnswer.objects.all()[0]
         values = {'answers': my_answer.id}
-        response = self.client.post(vote_url, data=values, follow=True)
+        self.client.force_authenticate(user)
+        response = self.client.post(vote_url, data=values)
         self.assertEqual(response.status_code, 403)
 
     def login_client(self, username='zeus', password='zeus'):

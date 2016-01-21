@@ -3,22 +3,21 @@
 from __future__ import unicode_literals
 
 from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, get_list_or_404
 from django.utils.translation import ugettext as _
 from rest_framework import status
 from rest_framework.decorators import permission_classes, api_view
-from rest_framework.exceptions import PermissionDenied, ParseError
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from pybb.markup import get_markup_engine
-from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser
+from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser, PollAnswer
 from pybb.permissions import get_perms, PermissionsMixin
 from pybb.serializers import TopicSerializer
 from pybb.settings import settings
-from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD
@@ -84,11 +83,9 @@ class TopicPollVoteView(PermissionsMixin, CreateAPIView):
         if not self.perms.may_vote_in_topic(self.request.user, topic):
             raise PermissionDenied
 
-        if not pybb_topic_poll_not_voted(topic, self.request.user):
-            raise ParseError
-
-        answers = [PollAnswerUser(poll_answer=answer, user=self.request.user) for answer in request.data['answers']]
-        PollAnswerUser.objects.bulk_create(answers)
+        answers = get_list_or_404(PollAnswer, topic=topic, pk__in=request.data['answers'])
+        poll_answer_objects = [PollAnswerUser(poll_answer=answer, user=self.request.user) for answer in answers]
+        PollAnswerUser.objects.bulk_create(poll_answer_objects)
         serializer = TopicSerializer(topic)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
