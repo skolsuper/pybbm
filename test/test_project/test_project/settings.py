@@ -3,14 +3,6 @@ from __future__ import unicode_literals
 
 import os
 
-import django
-
-try:
-    import south
-    south_installed = True
-except ImportError:
-    south_installed = False
-
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 DEBUG = False
@@ -37,8 +29,6 @@ elif test_db == 'postgres':
         'NAME': 'pybbm',
         'OPTIONS': {}
     })
-    if django.VERSION[:2] < (1, 7):
-        DATABASES['default']['OPTIONS']['autocommit'] = True
 
 INSTALLED_APPS = [
     'django.contrib.auth',
@@ -47,14 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.sites',
     'test_app',
+    'pybb'
 ]
-if django.VERSION[:2] < (1, 7) and south_installed:
-    INSTALLED_APPS.append('south')
-
-if django.VERSION[:2] < (1, 7):
-    INSTALLED_APPS.append('pybb')
-else:
-    INSTALLED_APPS.append('pybb.apps.PybbConfig')
 
 SECRET_KEY = 'some secret'
 
