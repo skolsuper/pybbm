@@ -1,27 +1,25 @@
-from django.contrib.auth import get_user_model
-from django.test import TestCase
+import pytest
 
 from pybb import util
 from pybb.settings import settings
 
-User = get_user_model()
+
+@pytest.mark.django_db
+def test_profile_autocreation_signal_on(django_user_model):
+    user = django_user_model.objects.create_user('cronos', 'cronos@localhost', 'cronos')
+    profile = getattr(user, settings.PYBB_PROFILE_RELATED_NAME, None)
+    assert profile is not None
+    assert isinstance(profile, util.get_pybb_profile_model())
 
 
-class ProfileCreateTest(TestCase):
-
-    def test_profile_autocreation_signal_on(self):
-        user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
-        profile = getattr(user, settings.PYBB_PROFILE_RELATED_NAME, None)
-        self.assertIsNotNone(profile)
-        self.assertIsInstance(profile, util.get_pybb_profile_model())
-
-    def test_profile_autocreation_middleware(self):
-        user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
-        getattr(user, settings.PYBB_PROFILE_RELATED_NAME).delete()
-        #just display a page : the middleware should create the profile
-        self.client.login(username='cronos', password='cronos')
-        self.client.get('/')
-        user = User.objects.get(username='cronos')
-        profile = getattr(user, settings.PYBB_PROFILE_RELATED_NAME, None)
-        self.assertIsNotNone(profile)
-        self.assertIsInstance(profile, util.get_pybb_profile_model())
+@pytest.mark.django_db
+def test_profile_autocreation_middleware(django_user_model, client):
+    user = django_user_model.objects.create_user('cronos', 'cronos@localhost', 'cronos')
+    getattr(user, settings.PYBB_PROFILE_RELATED_NAME).delete()
+    #just display a page : the middleware should create the profile
+    client.login(username='cronos', password='cronos')
+    client.get('/')
+    user = django_user_model.objects.get(username='cronos')
+    profile = getattr(user, settings.PYBB_PROFILE_RELATED_NAME, None)
+    assert profile is not None
+    assert isinstance(profile, util.get_pybb_profile_model())
