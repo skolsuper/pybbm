@@ -49,6 +49,10 @@ class DefaultPermissionHandler(object):
         """ return True if `user` is allowed to create a new topic in `forum` """
         return user.has_perm('pybb.add_post')
 
+    def may_create_topic_unmoderated(self, user, forum):
+        """ return True if `user` is allowed to create a new unmoderated topic in `forum` """
+        return user.is_superuser or not settings.PYBB_PREMODERATION
+
     #
     # permission checks on topics
     # 
@@ -112,6 +116,10 @@ class DefaultPermissionHandler(object):
 
         # only user which have 'pybb.add_post' permission may post
         return settings.PYBB_ENABLE_ANONYMOUS_POST or user.has_perm('pybb.add_post')
+
+    def may_create_post_unmoderated(self, user, topic):
+        """ return True if `user` is allowed to create a new unmoderated post in `topic` """
+        return user.is_superuser or not settings.PYBB_PREMODERATION
 
     def may_subscribe_topic(self, user, forum):
         """ return True if `user` is allowed to subscribe to a `topic` """

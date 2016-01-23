@@ -6,8 +6,9 @@ from django.core.urlresolvers import reverse
 from django.db.models import F, Count, Max
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, get_object_or_404
+from django.utils.translation import ugettext as _
 from rest_framework import status
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ParseError
 from rest_framework.generics import RetrieveAPIView, ListAPIView, ListCreateAPIView, UpdateAPIView
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
@@ -93,11 +94,19 @@ class ListCreateTopicsView(PermissionsMixin, ListCreateAPIView):
         return qs.order_by('-last_update', '-id')
 
     def create(self, request, *args, **kwargs):
+        try:
+            forum = Forum.objects.get(pk=request.data['forum'])
+        except Forum.DoesNotExist:
+            raise ParseError(_('Specified forum not found.'))
+        if not self.perms.may_create_topic(request.user, forum):
+            raise PermissionDenied(_('You do not have permission to create topics in this forum.'))
         if 'poll_question' in request.data and not self.perms.may_create_poll(request.user):
-            raise PermissionDenied
-        data = request.data.copy()
-        data['user'] = self.request.user.id
-        serializer = self.get_serializer(data=data)
+            raise PermissionDenied(_('You do not have permission to create a poll.'))
+
+        topic_data = request.data.copy()
+        topic_data['user'] = request.user.id
+        topic_data['on_moderation'] = not self.perms.may_create_topic_unmoderated(request.user, forum)
+        serializer = self.get_serializer(data=topic_data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
