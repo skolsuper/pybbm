@@ -4,6 +4,7 @@ from pybb import util
 from pybb.settings import settings
 
 
+
 @pytest.mark.django_db
 def test_profile_autocreation_signal_on(django_user_model):
     user = django_user_model.objects.create_user('cronos', 'cronos@localhost', 'cronos')

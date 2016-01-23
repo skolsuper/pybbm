@@ -15,7 +15,8 @@ setup(
         'django-annoying',
         'unidecode',
     ],
-    test_suite='runtests.runtests',
+    setup_requires=['pytest-runner'],
+    test_requires=['pytest', 'pytest-django'],
     license="BSD",
     keywords="django application forum board",
     classifiers=[
