@@ -1,9 +1,7 @@
 import os
-import warnings
 
 from django.conf import settings as django_settings
 from django.core.exceptions import ImproperlyConfigured
-from django.utils.six import string_types
 
 defaults = {
     'PYBB_DEFAULT_TOPICS_PER_PAGE': 50,

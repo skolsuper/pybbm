@@ -1,89 +1,119 @@
-from django.conf import settings
 from django.core import mail
 from django.core.urlresolvers import reverse
-from django.test import TestCase, Client
-from lxml import html
+from django.test import Client, override_settings
+from rest_framework.test import APITestCase
 
 from pybb.models import Post, Topic, Category, Forum
-from pybb.settings import settings as pybb_settings
 from pybb.tests.utils import User
 
 
-class PreModerationTest(TestCase):
+@override_settings(PYBB_PREMODERATION=True)
+class PreModerationTest(APITestCase):
+
     def setUp(self):
-        self.ORIG_PYBB_PREMODERATION = pybb_settings.PYBB_PREMODERATION
-        pybb_settings.PYBB_PREMODERATION = premoderate_test
-        self.create_user()
-        self.create_initial()
         mail.outbox = []
 
     def test_premoderation(self):
-        self.client.login(username='zeus', password='zeus')
-        add_post_url = reverse('pybb:add_post', kwargs={'topic_id': self.topic.id})
-        response = self.client.get(add_post_url)
-        values = self.get_form_values(response)
-        values['body'] = 'test premoderation'
-        response = self.client.post(add_post_url, values, follow=True)
-        self.assertEqual(response.status_code, 200)
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        topic = Topic.objects.create(name='etopic', forum=forum, user=user)
+
+        self.client.force_authenticate(user)
+        add_post_url = reverse('pybb:add_post')
+        values = {
+            'topic': topic.id,
+            'body': 'test premoderation'
+        }
+        response = self.client.post(add_post_url, values)
+        self.assertEqual(response.status_code, 201)
         post = Post.objects.get(body='test premoderation')
         self.assertEqual(post.on_moderation, True)
 
         # Post is visible by author
-        response = self.client.get(post.get_absolute_url(), follow=True)
+        response = self.client.get(post.get_absolute_url())
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'test premoderation')
+        self.assertContains(response.data['body'], 'test premoderation')
 
         # Post is not visible by anonymous user
-        client = Client()
-        response = client.get(post.get_absolute_url(), follow=True)
-        self.assertRedirects(response, settings.LOGIN_URL + '?next=%s' % post.get_absolute_url())
-        response = client.get(self.topic.get_absolute_url(), follow=True)
+        self.client.force_authenticate()
+        response = self.client.get(post.get_absolute_url())
+        self.assertEqual(response.status_code, 404)
+        response = self.client.get(topic.get_absolute_url())
         self.assertNotContains(response, 'test premoderation')
 
         # But visible by superuser (with permissions)
-        user = User.objects.create_user('admin', 'admin@localhost', 'admin')
-        user.is_superuser = True
-        user.save()
-        client.login(username='admin', password='admin')
-        response = client.get(post.get_absolute_url(), follow=True)
+        superuser = User.objects.create_superuser('admin', 'admin@localhost', 'admin')
+        self.client.force_authenticate(superuser)
+        response = self.client.get(post.get_absolute_url(), follow=True)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'test premoderation')
+        self.assertContains(response.data['body'], 'test premoderation')
 
-        # user with names stats with allowed can post without premoderation
-        user = User.objects.create_user('allowed_zeus', 'allowed_zeus@localhost', 'allowed_zeus')
-        client.login(username='allowed_zeus', password='allowed_zeus')
-        response = client.get(add_post_url)
-        values = self.get_form_values(response)
-        values['body'] = 'test premoderation staff'
-        response = client.post(add_post_url, values, follow=True)
-        self.assertEqual(response.status_code, 200)
+    def test_superuser_premoderation(self):
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        topic = Topic.objects.create(name='etopic', forum=forum, user=user)
+
+        add_post_url = reverse('pybb:add_post')
+        values = {
+            'topic': topic.id,
+            'body': 'test premoderation'
+        }
+        superuser = User.objects.create_superuser('admin', 'admin@localhost', 'admin')
+        self.client.force_authenticate(superuser)
+        response = self.client.post(add_post_url, values)
+        self.assertEqual(response.status_code, 201)
         post = Post.objects.get(body='test premoderation staff')
-        client = Client()
-        response = client.get(post.get_absolute_url(), follow=True)
-        self.assertContains(response, 'test premoderation staff')
+        self.assertFalse(post.on_moderation)
+
+        self.client.force_authenticate()
+        response = self.client.get(post.get_absolute_url())
+        self.assertContains(response.data['body'], 'test premoderation staff')
+
+    def test_moderation(self):
+        category = Category.objects.create(name='foo')
+        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
+        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
+        topic = Topic.objects.create(name='etopic', forum=forum, user=user)
+
+        self.client.force_authenticate(user)
+        add_post_url = reverse('pybb:add_post')
+        values = {
+            'topic': topic.id,
+            'body': 'test premoderation'
+        }
+        self.client.post(add_post_url, values)
+        post = Post.objects.get(topic=topic, body='test premoderation')
+        self.assertTrue(post.on_moderation)
+
+        superuser = User.objects.create_superuser('admin', 'admin@localhost', 'admin')
+        self.client.force_authenticate(superuser)
 
         # Superuser can moderate
-        user.is_superuser = True
-        user.save()
-        admin_client = Client()
-        admin_client.login(username='admin', password='admin')
-        post = Post.objects.get(body='test premoderation')
-        response = admin_client.get(reverse('pybb:moderate_post', kwargs={'pk': post.id}), follow=True)
+        moderate_url = reverse('pybb:moderate_post', kwargs={'pk': post.id})
+        response = self.client.get(moderate_url)
+        self.assertEqual(response.status_code, 405, 'Moderation requires a POST request.')
+
+        response = self.client.post(moderate_url)
         self.assertEqual(response.status_code, 200)
+        post.refresh_from_db()
+        self.assertFalse(post.on_moderation)
 
         # Now all can see this post:
-        client = Client()
-        response = client.get(post.get_absolute_url(), follow=True)
+        self.client.force_authenticate()
+        response = self.client.get(post.get_absolute_url())
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'test premoderation')
+        self.assertContains(response.data['body'], 'test premoderation')
 
         # Other users can't moderate
         post.on_moderation = True
         post.save()
-        client.login(username='zeus', password='zeus')
-        response = client.get(reverse('pybb:moderate_post', kwargs={'pk': post.id}), follow=True)
+        self.client.force_authenticate(user)
+        response = self.client.post(moderate_url)
         self.assertEqual(response.status_code, 403)
 
+    def test_topic_moderation(self):
         # If user create new topic it goes to moderation if MODERATION_ENABLE
         # When first post is moderated, topic becomes moderated too
         self.client.login(username='zeus', password='zeus')
@@ -114,38 +144,4 @@ class PreModerationTest(TestCase):
         response = client.get(Topic.objects.get(name='new topic name').get_absolute_url())
         self.assertEqual(response.status_code, 200)
 
-    def tearDown(self):
-        pybb_settings.PYBB_PREMODERATION = self.ORIG_PYBB_PREMODERATION
 
-    def create_user(self):
-        self.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-
-    def login_client(self, username='zeus', password='zeus'):
-        self.client.login(username=username, password=password)
-
-    def create_initial(self, post=True):
-        self.category = Category.objects.create(name='foo')
-        self.forum = Forum.objects.create(name='xfoo', description='bar', category=self.category)
-        self.topic = Topic.objects.create(name='etopic', forum=self.forum, user=self.user)
-        if post:
-            self.post = Post.objects.create(topic=self.topic, user=self.user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
-
-    def get_form_values(self, response, form="post-form"):
-        return dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % form)[0].form_values())
-
-    def get_with_user(self, url, username=None, password=None):
-        if username:
-            self.client.login(username=username, password=password)
-        r = self.client.get(url)
-        self.client.logout()
-        return r
-
-
-def premoderate_test(user, post):
-    """
-    Test premoderate function
-    Allow post without moderation for staff users only
-    """
-    if user.username.startswith('allowed'):
-        return True
-    return False
