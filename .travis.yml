@@ -19,7 +19,7 @@ install:
   - if [[ $DB == mysql ]]; then pip install -qU mysqlclient; fi
   - if [[ $DB == postgres ]]; then pip install -qU psycopg2; fi
   - pip install -qU $DJANGO
-  - CFLAGS="-O0" pip install -qU -r test/testK_project/requirements_test.txt
+  - CFLAGS="-O0" pip install -qU -r test/test_project/requirements_test.txt
 before_script:
   - mysql -e 'create database pybbm;'
   - psql -c 'create database pybbm;' -U postgres
