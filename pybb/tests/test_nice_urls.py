@@ -134,7 +134,7 @@ class NiceUrlsTest(APITestCase):
         slug_nb = Topic.objects.filter(slug__regex='^{}-?\d*'.format(compat.slugify(self.topic.name))).count() - 1
         Topic.objects.get(slug='%s-%d' % (self.topic.name, slug_nb))
 
-        with self.settings(PYBB_PERMISSION_HANDLER='pybb.tests.CustomPermissionHandler'):
+        with self.settings(PYBB_PERMISSION_HANDLER='test.test_project.test_project.permissions.CustomPermissionHandler'):
             values = {
                 'name': self.topic.name,
                 'body': '[b]Test slug body[/b]',
