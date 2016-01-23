@@ -4,10 +4,10 @@ from __future__ import unicode_literals
 
 from django.core.urlresolvers import reverse
 from django.test import override_settings
+from pybb.tests.utils import User
 from rest_framework.test import APITestCase
 
 from pybb.models import Topic, PollAnswer, Category, Forum, Post, PollAnswerUser
-from pybb.tests.utils import User
 
 
 @override_settings(PYBB_POLL_MAX_ANSWERS=2)

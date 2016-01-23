@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
 from django.http import Http404
@@ -8,9 +9,11 @@ from rest_framework.exceptions import NotFound
 
 from pybb.models import Category, Forum, Topic, Post
 from pybb.settings import settings as pybb_settings
-from pybb.tests.utils import User, Profile
+from pybb.util import get_pybb_profile_model
 from pybb.views import CategoryView, ForumView, TopicView
 
+User = get_user_model()
+Profile = get_pybb_profile_model()
 Exc404 = (Http404, NotFound)
 
 

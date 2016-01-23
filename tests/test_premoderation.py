@@ -1,9 +1,11 @@
+from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from pybb.models import Post, Topic, Category, Forum
-from pybb.tests.utils import User
+
+User = get_user_model()
 
 
 @override_settings(PYBB_PREMODERATION=True)

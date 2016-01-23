@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 import datetime
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.urlresolvers import reverse
 from django.test import skipUnlessDBFeature, Client, override_settings
@@ -16,8 +17,8 @@ from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, 
 from pybb.settings import settings as pybb_settings
 from pybb.templatetags.pybb_tags import pybb_topic_unread, pybb_is_topic_unread, pybb_forum_unread, \
     pybb_get_latest_topics, pybb_get_latest_posts
-from pybb.tests.utils import Profile, User
-
+User = get_user_model()
+Profile = util.get_pybb_profile_model()
 
 @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False, PYBB_PREMODERATION=False)
 class FeaturesTest(APITestCase):

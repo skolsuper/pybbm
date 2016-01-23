@@ -2,12 +2,13 @@
 
 from __future__ import unicode_literals
 
+from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from pybb.models import Category, Forum, Topic, Post
-from pybb.tests.utils import User
+User = get_user_model()
 
 
 @override_settings(PYBB_PERMISSION_HANDLER='test.test_project.test_project.permissions.CustomPermissionHandler')

@@ -4,12 +4,13 @@ from __future__ import unicode_literals
 
 import os
 
+from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from pybb.models import Post, Category, Forum, Topic
-from pybb.tests.utils import User
+User = get_user_model()
 
 FILE_NAME = os.path.join(os.path.dirname(__file__), '../static', 'pybb', 'img', 'attachment.png')
 

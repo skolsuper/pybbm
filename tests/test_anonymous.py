@@ -2,6 +2,7 @@
 
 from __future__ import unicode_literals
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.cache import cache
 from django.core.urlresolvers import reverse
@@ -12,7 +13,7 @@ from rest_framework.test import APITestCase
 from pybb import util
 from pybb.models import Category, Forum, Topic, Post
 from pybb.settings import settings as pybb_settings
-from pybb.tests.utils import User
+User = get_user_model()
 
 
 @override_settings(PYBB_ENABLE_ANONYMOUS_POST=True, PYBB_ANONYMOUS_USERNAME='Anonymous')

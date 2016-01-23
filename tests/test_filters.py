@@ -1,8 +1,10 @@
+from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
 from rest_framework.test import APITestCase
 
 from pybb.models import Post, Category, Forum, Topic
-from pybb.tests.utils import User
+
+User = get_user_model()
 
 
 class FiltersTest(APITestCase):
