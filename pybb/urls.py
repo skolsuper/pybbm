@@ -5,12 +5,13 @@ from __future__ import unicode_literals
 from django.conf.urls import url
 
 from pybb.feeds import LastPosts, LastTopics
-from pybb.views import CategoryList, CategoryView, ForumView, TopicView,\
-    CreatePostView, UpdatePostView, UserView, PostView, ProfileEditView,\
-    DeletePostView, StickTopicView, UnstickTopicView, CloseTopicView,\
-    OpenTopicView, moderate_post, TopicPollVoteView, ListCreateTopicsView,\
-    UserTopics, UserPosts, topic_cancel_poll_vote, block_user, unblock_user,\
-    delete_subscription, add_subscription, mark_all_as_read, preview_post, UpdateTopicView
+from pybb.views import (
+    CategoryList, CategoryView, ForumView, TopicView, ListCreatePostView, UpdatePostView,
+    UserView, PostView, ProfileEditView, DeletePostView, StickTopicView, UnstickTopicView,
+    CloseTopicView, OpenTopicView, moderate_post, TopicPollVoteView, ListCreateTopicsView,
+    UserTopics, UserPosts, topic_cancel_poll_vote, block_user, unblock_user, delete_subscription,
+    add_subscription, mark_all_as_read, preview_post, UpdateTopicView, moderate_topic
+)
 
 urlpatterns = [
     # Syndication feeds
@@ -41,13 +42,14 @@ urlpatterns = [
     url('^topics/(?P<pk>\d+)/open/$', OpenTopicView.as_view(), name='open_topic'),
     url('^topics/(?P<pk>\d+)/poll_vote/$', TopicPollVoteView.as_view(), name='topic_poll_vote'),
     url('^topics/(?P<pk>\d+)/cancel_poll_vote/$', topic_cancel_poll_vote, name='topic_cancel_poll_vote'),
+    url('^topics/(?P<pk>\d+)/moderate/$', moderate_topic, name='moderate_topic'),
 
     # Subscription
     url('^topics/(?P<pk>\d+)/unsubscribe/$', delete_subscription, name='delete_subscription'),
     url('^topics/(?P<pk>\d+)/subscribe/$', add_subscription, name='add_subscription'),
 
     # Post
-    url('^posts/$', CreatePostView.as_view(), name='add_post'),
+    url('^posts/$', ListCreatePostView.as_view(), name='add_post'),
     url('^posts/(?P<pk>\d+)/$', PostView.as_view(), name='post'),
     url('^posts/(?P<pk>\d+)/edit/$', UpdatePostView.as_view(), name='edit_post'),
     url('^posts/(?P<pk>\d+)/delete/$', DeletePostView.as_view(), name='delete_post'),

@@ -120,20 +120,61 @@ class PreModerationTest(APITestCase):
         response = self.client.post(add_topic_url, values)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['name'], 'new topic name')
+        topic_pk = response.data['id']
+        self.assertTrue(Topic.objects.filter(pk=topic_pk).exists())
+        self.assertEqual(Post.objects.filter(topic__pk=topic_pk).count(), 1)
+        topic_url = reverse('pybb:topic', kwargs={'pk': topic_pk})
+        self.client.login(username='zeus', password='zeus')  # force_authenticate doesn't work here for some reason
+        response = self.client.get(topic_url)
+        self.assertEqual(response.status_code, 200)
 
-        # self.client.force_authenticate()
-        # response = self.client.get(add_topic_url)  # Topic list URL is same as topic create
-        # self.assertEqual(response.status_code, 200)
-        # self.assertNotContains(response.data['results'], 'new topic name')
-        # response = client.get(Topic.objects.get(name='new topic name').get_absolute_url())
-        # self.assertEqual(response.status_code, 302)
-        # response = admin_client.get(reverse('pybb:moderate_post',
-        #                                     kwargs={'pk': Post.objects.get(body='new topic test').id}),
-        #                             follow=True)
-        # self.assertEqual(response.status_code, 200)
-        #
-        # response = client.get(self.forum.get_absolute_url())
-        # self.assertEqual(response.status_code, 200)
-        # self.assertContains(response, 'new topic name')
-        # response = client.get(Topic.objects.get(name='new topic name').get_absolute_url())
-        # self.assertEqual(response.status_code, 200)
+        self.client.force_authenticate()
+        response = self.client.get(add_topic_url, {'forum': self.forum.pk})  # Topic list URL is same as topic create
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 1)
+        serialized_topic = response.data['results'][0]
+        self.assertNotEqual(serialized_topic['name'], 'new topic name')
+
+        response = self.client.get(topic_url)
+        self.assertEqual(response.status_code, 404)
+
+        self.client.force_authenticate(self.user)
+        response = self.client.get(add_topic_url, {'forum': self.forum.pk})  # Topic list URL is same as topic create
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 2)
+        serialized_topic = response.data['results'][0]
+        self.assertEqual(serialized_topic['name'], 'new topic name')
+
+        post_pk = Post.objects.get(topic__pk=topic_pk).pk
+        post_url = reverse('pybb:post', kwargs={'pk': post_pk})
+        response = self.client.get(post_url)
+        self.assertEqual(response.status_code, 200)
+
+        superuser = User.objects.create_superuser('admin', 'admin@localhost', 'admin')
+
+        self.client.force_authenticate(superuser)
+        response = self.client.get(add_topic_url, {'forum': self.forum.pk})  # Topic list URL is same as topic create
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 2)
+        serialized_topic = response.data['results'][0]
+        self.assertEqual(serialized_topic['name'], 'new topic name')
+
+        self.client.login(username='admin', password='admin')  # force_authenticate doesn't work here for some reason
+        response = self.client.get(topic_url)
+        self.assertEqual(response.status_code, 200)
+
+        moderate_url = reverse('pybb:moderate_topic', kwargs={'pk': topic_pk})
+        response = self.client.get(moderate_url)
+        self.assertEqual(response.status_code, 405)
+        response = self.client.post(moderate_url)
+        self.assertEqual(response.status_code, 200)
+
+        self.client.force_authenticate()
+        response = self.client.get(add_topic_url, {'forum': self.forum.pk})  # Topic list URL is same as topic create
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 2)
+        serialized_topic = response.data['results'][0]
+        self.assertEqual(serialized_topic['name'], 'new topic name')
+
+        response = self.client.get(topic_url)
+        self.assertEqual(response.status_code, 200)

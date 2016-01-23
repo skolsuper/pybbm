@@ -176,3 +176,25 @@ def preview_post(request):
     markup_engine = get_markup_engine(markup_type)
     html = markup_engine.format(message_string)
     return Response({'html': html, 'markup': markup_type}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def moderate_post(request, *args, **kwargs):
+    post = get_object_or_404(Post, pk=kwargs['pk'])
+    if not get_perms().may_moderate_topic(request.user, post.topic):
+        raise PermissionDenied
+    post.on_moderation = False
+    post.save()
+    headers = {'Location': post.get_absolute_url()}
+    return Response(status=status.HTTP_200_OK, headers=headers)
+
+
+@api_view(['POST'])
+def moderate_topic(request, *args, **kwargs):
+    topic = get_object_or_404(Topic, pk=kwargs['pk'])
+    if not get_perms().may_moderate_forum(request.user, topic.forum):
+        raise PermissionDenied
+    topic.on_moderation = False
+    topic.save()
+    headers = {'Location': topic.get_absolute_url()}
+    return Response(status=status.HTTP_200_OK, headers=headers)

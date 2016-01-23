@@ -15,7 +15,7 @@ from rest_framework.response import Response
 
 from pybb import util
 from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTracker
-from pybb.pagination import PybbTopicPagination, PybbPostPagination
+from pybb.pagination import PybbTopicPagination
 from pybb.permissions import PermissionsMixin
 from pybb.serializers import ForumSerializer, TopicSerializer, CategorySerializer
 from pybb.settings import settings
@@ -85,13 +85,16 @@ class ForumView(PermissionsMixin, RetrieveAPIView):
 class ListCreateTopicsView(PermissionsMixin, ListCreateAPIView):
 
     pagination_class = PybbTopicPagination
-    queryset = Topic.objects.annotate(Count('posts'), last_update=Max('posts__updated'))
+    queryset = Topic.objects.annotate(post_count=Count('posts'), last_update=Max('posts__updated'))
     serializer_class = TopicSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         qs = self.perms.filter_topics(self.request.user, self.queryset)
-        return qs.order_by('-last_update', '-id')
+        forum_pk = self.request.query_params.get('forum', None)
+        if forum_pk is not None:
+            qs = qs.filter(forum__pk=forum_pk)
+        return qs.order_by('sticky', '-last_update', '-id')
 
     def create(self, request, *args, **kwargs):
         try:
@@ -137,8 +140,8 @@ class UpdateTopicView(PermissionsMixin, UpdateAPIView):
         self.perform_update(serializer)
         return Response(serializer.data)
 
+
 class TopicView(PermissionsMixin, RetrieveAPIView):
-    pagination_class = PybbPostPagination
     queryset = Topic.objects.annotate(Count('posts'))
     serializer_class = TopicSerializer
 

@@ -45,6 +45,9 @@ class DefaultPermissionHandler(object):
         """ return True if user may view this forum, False if not """
         return user.is_staff or not (forum.hidden or forum.category.hidden)
 
+    def may_moderate_forum(self, user, forum):
+        return user.is_staff or forum.moderators.filter(pk=user.pk).exists()
+
     def may_create_topic(self, user, forum):
         """ return True if `user` is allowed to create a new topic in `forum` """
         return user.has_perm('pybb.add_post')
@@ -131,15 +134,15 @@ class DefaultPermissionHandler(object):
     def filter_posts(self, user, qs):
         """ return a queryset with posts `user` is allowed to see """
 
+        if user.is_superuser:
+            # superuser may see all posts
+            return qs
+
         # first filter by topic availability
         if not user.is_staff:
             qs = qs.filter(Q(topic__forum__hidden=False) & Q(topic__forum__category__hidden=False))
 
-        if not settings.PYBB_PREMODERATION or user.is_superuser:
-            # superuser may see all posts, also if premoderation is turned off moderation 
-            # flag is ignored
-            return qs
-        elif user.is_authenticated():
+        if user.is_authenticated():
             # post is visible if user is author, post is not on moderation, or user is moderator
             # for this forum
             qs = qs.filter(Q(user=user) | Q(on_moderation=False) | Q(topic__forum__moderators=user))

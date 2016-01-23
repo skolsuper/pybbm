@@ -3,32 +3,39 @@
 from __future__ import unicode_literals
 
 from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, get_list_or_404
 from django.utils.translation import ugettext as _
 from rest_framework import status
-from rest_framework.decorators import api_view
 from rest_framework.exceptions import PermissionDenied, ParseError
-from rest_framework.generics import DestroyAPIView, CreateAPIView, UpdateAPIView, RetrieveAPIView
+from rest_framework.generics import DestroyAPIView, UpdateAPIView, RetrieveAPIView, ListCreateAPIView
 from rest_framework.response import Response
 
 from pybb.models import Topic, Post
-from pybb.permissions import PermissionsMixin, get_perms
+from pybb.pagination import PybbPostPagination
+from pybb.permissions import PermissionsMixin
 from pybb.serializers import PostSerializer
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD
 
 
-class CreatePostView(PermissionsMixin, CreateAPIView):
+class ListCreatePostView(PermissionsMixin, ListCreateAPIView):
 
+    queryset = Post.objects.all()
     serializer_class = PostSerializer
+    pagination_class = PybbPostPagination
 
     def get_queryset(self):
-        return self.perms.filter_topics(self.request.user, Topic.objects.all())
+        qs = self.perms.filter_posts(self.request.user, self.queryset)
+        topic_pk = self.request.query_params('topic', None)
+        if topic_pk is not None:
+            qs = get_list_or_404(qs, topic__pk=topic_pk)
+        return qs
 
     def create(self, request, *args, **kwargs):
         try:
-            topic = self.get_queryset().get(pk=request.data['topic'])
+            topics = self.perms.filter_topics(self.request.user, Topic.objects.all())
+            topic = topics.get(pk=request.data['topic'])
         except Topic.DoesNotExist:
             raise ParseError(_('Specified topic not found.'))
         if not self.perms.may_create_post(request.user, topic):
@@ -72,17 +79,6 @@ class PostView(PermissionsMixin, RetrieveAPIView):
         if not self.perms.may_view_post(self.request.user, post):
             raise PermissionDenied
         return post
-
-
-@api_view(['POST'])
-def moderate_post(request, *args, **kwargs):
-    post = get_object_or_404(Post, pk=kwargs['pk'])
-    if not get_perms().may_moderate_topic(request.user, post.topic):
-        raise PermissionDenied
-    post.on_moderation = False
-    post.save()
-    headers = {'Location': post.get_absolute_url()}
-    return Response(status=status.HTTP_200_OK, headers=headers)
 
 
 class DeletePostView(PermissionsMixin, DestroyAPIView):
