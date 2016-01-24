@@ -55,15 +55,12 @@ class Topic(models.Model):
     def updated(self):
         try:
             return self.posts.order_by('updated').last().updated
-        except IndexError:
+        except AttributeError:
             return None
 
     @cached_property
     def head(self):
-        try:
-            return self.posts.order_by('created', 'id').first()
-        except IndexError:
-            return None
+        return self.posts.order_by('created', 'id').first()
 
     @cached_property
     def last_post(self):
