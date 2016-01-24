@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, get_list_or_404
+from django.utils import timezone
 from django.utils.translation import ugettext as _
 from rest_framework import status
 from rest_framework.decorators import permission_classes, api_view
@@ -85,7 +86,7 @@ class TopicPollVoteView(PermissionsMixin, CreateAPIView):
         answers = get_list_or_404(PollAnswer, topic=topic, pk__in=request.data['answers'])
         poll_answer_objects = [PollAnswerUser(poll_answer=answer, user=self.request.user) for answer in answers]
         PollAnswerUser.objects.bulk_create(poll_answer_objects)
-        serializer = TopicSerializer(topic)
+        serializer = TopicSerializer(topic, context=self.get_serializer_context())
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def get_object(self):
@@ -97,7 +98,7 @@ class TopicPollVoteView(PermissionsMixin, CreateAPIView):
 def topic_cancel_poll_vote(request, pk):
     topic = get_object_or_404(Topic, pk=pk)
     PollAnswerUser.objects.filter(user=request.user, poll_answer__topic_id=topic.id).delete()
-    serializer = TopicSerializer(topic)
+    serializer = TopicSerializer(topic, context={'request': request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -107,7 +108,7 @@ def delete_subscription(request, pk):
     perms = get_perms()
     topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=pk)
     topic.subscribers.remove(request.user)
-    serializer = TopicSerializer(topic)
+    serializer = TopicSerializer(topic, context={'request': request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -121,7 +122,7 @@ def add_subscription(request, pk):
     if not perms.may_subscribe_topic(request.user, topic):
         raise PermissionDenied
     topic.subscribers.add(request.user)
-    serializer = TopicSerializer(topic)
+    serializer = TopicSerializer(topic, context={'request': request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -131,6 +132,7 @@ def mark_all_as_read(request):
     perms = get_perms()
     for forum in perms.filter_forums(request.user, Forum.objects.all()):
         forum_mark, new = ForumReadTracker.objects.get_or_create_tracker(forum=forum, user=request.user)
+        forum_mark.time_stamp = timezone.now()
         forum_mark.save()
     TopicReadTracker.objects.filter(user=request.user).delete()
     msg = _('All forums marked as read')
