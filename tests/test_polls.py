@@ -110,7 +110,7 @@ class PollTest(APITestCase):
         self.assertEqual(new_topic.poll_question, 'q1')
         self.assertEqual(PollAnswer.objects.filter(topic=new_topic).count(), 2)
 
-        add_post_url = reverse('pybb:add_post')
+        add_post_url = reverse('pybb:post_list')
         values = {
             'topic': new_topic.id,
             'body': 'test answer body'

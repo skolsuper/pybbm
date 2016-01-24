@@ -4,7 +4,7 @@ from pybb.models import Post
 
 
 def test_filters(user, topic, api_client):
-    add_post_url = reverse('pybb:add_post')
+    add_post_url = reverse('pybb:post_list')
     api_client.force_authenticate(user)
     values = {
         'topic': topic.id,

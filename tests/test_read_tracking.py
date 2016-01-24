@@ -31,7 +31,7 @@ def test_read_tracking(user, topic, api_client):
     response = api_client.get(reverse('pybb:index'))
     assert not response.data['results'][0]['unread']
     # Post message
-    add_post_url = reverse('pybb:add_post')
+    add_post_url = reverse('pybb:post_list')
     values = {
         'topic': topic.id,
         'body': 'test tracking'
@@ -118,7 +118,7 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
     assert topic_3.name == 'topic_3'
 
     # user_alice posts to topic, a topic they've already read, no new trackers should be created
-    add_post_url = reverse('pybb:add_post', kwargs={'topic_id': topic.id})
+    add_post_url = reverse('pybb:post_list', kwargs={'topic_id': topic.id})
     values = {
         'body': 'test tracking'
     }
@@ -195,7 +195,7 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
 #     topic = Topic.objects.create(name='xtopic', forum=forum, user=user)
 #     client = Client()
 #     client.login(username='zeus', password='zeus')
-#     add_post_url = reverse('pybb:add_post', kwargs={'topic_id': topic.id})
+#     add_post_url = reverse('pybb:post_list', kwargs={'topic_id': topic.id})
 #     response = client.get(add_post_url)
 #     values = self.get_form_values(response)
 #     values['body'] = 'test tracking'

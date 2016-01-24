@@ -41,7 +41,7 @@ class AnonymousTest(APITestCase):
 
     def test_anonymous_posting(self):
         self.client.force_authenticate()
-        post_url = reverse('pybb:add_post')
+        post_url = reverse('pybb:post_list')
         values = {
             'topic': self.topic.id,
             'body': 'test anonymous'
@@ -55,7 +55,7 @@ class AnonymousTest(APITestCase):
     @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False)
     def test_no_anonymous_posting(self):
         self.client.force_authenticate()
-        post_url = reverse('pybb:add_post')
+        post_url = reverse('pybb:post_list')
         values = {
             'topic': self.topic.id,
             'body': 'test anonymous'

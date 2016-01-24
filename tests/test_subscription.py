@@ -24,7 +24,7 @@ def test_subscription(admin_user, django_user_model, api_client, topic):
 
     # create a new reply (with another user)
     api_client.force_authenticate(admin_user)
-    add_post_url = reverse('pybb:add_post')
+    add_post_url = reverse('pybb:post_list')
     values = {
         'topic': topic.id,
         'body': 'test subscription юникод'
@@ -62,7 +62,7 @@ def test_subscription_disabled(settings, admin_user, django_user_model, api_clie
 
     # create a new reply (with another user)
     api_client.force_authenticate(admin_user)
-    add_post_url = reverse('pybb:add_post')
+    add_post_url = reverse('pybb:post_list')
     values = {
         'topic': topic.id,
         'body': 'test subscription юникод'
@@ -93,7 +93,7 @@ def test_notifications_disabled(settings, admin_user, django_user_model, topic, 
 
     # create a new reply (with another user)
     api_client.force_authenticate(admin_user)
-    add_post_url = reverse('pybb:add_post')
+    add_post_url = reverse('pybb:post_list')
     values = {
         'body': 'test subscribtion юникод',
         'topic': topic.id

@@ -17,7 +17,7 @@ def test_attachments(settings, django_user_model, api_client):
     category = Category.objects.create(name='foo')
     forum = Forum.objects.create(name='xfoo', description='bar', category=category)
     topic = Topic.objects.create(name='etopic', forum=forum, user=user)
-    add_post_url = reverse('pybb:add_post')
+    add_post_url = reverse('pybb:post_list')
     api_client.force_authenticate(user)
     with NamedTemporaryFile() as fp:
         fp.write('hello')

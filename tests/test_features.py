@@ -202,7 +202,7 @@ class FeaturesTest(APITestCase):
         forum = Forum.objects.create(category=category, name='foo')
         topic = Topic.objects.create(name='topic_1', forum=forum, user=user)
         self.client.force_authenticate(user)
-        url = reverse('pybb:add_post')
+        url = reverse('pybb:post_list')
         data = {
             'body': 'test ban',
             'topic': topic.id
@@ -275,7 +275,7 @@ class FeaturesTest(APITestCase):
         topic = Topic.objects.create(name='topic', forum=forum, user=user)
         post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
         self.client.force_authenticate(user)
-        response = self.client.get(reverse('pybb:add_post', kwargs={'topic_id': topic.id}),
+        response = self.client.get(reverse('pybb:post_list', kwargs={'topic_id': topic.id}),
                                    data={'quote_id': post.id, 'body': 'test tracking'}, follow=True)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, post.body)
@@ -344,7 +344,7 @@ class FeaturesTest(APITestCase):
         response = self.client.post(reverse('pybb:close_topic', args=[topic.id]), follow=True)
         self.assertEqual(response.status_code, 200)
 
-        add_post_url = reverse('pybb:add_post')
+        add_post_url = reverse('pybb:post_list')
         values = {'body': 'test closed', 'topic': topic.id}
         response = self.client.post(add_post_url, values, follow=True)
         self.assertEqual(response.status_code, 201, 'Superusers can post in closed topics')

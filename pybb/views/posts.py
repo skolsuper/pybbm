@@ -30,7 +30,7 @@ class ListCreatePostView(PermissionsMixin, ListCreateAPIView):
 
     def get_queryset(self):
         qs = self.perms.filter_posts(self.request.user, self.queryset)
-        topic_pk = self.request.query_params('topic', None)
+        topic_pk = self.request.query_params.get('topic', None)
         if topic_pk is not None:
             qs = get_list_or_404(qs, topic__pk=topic_pk)
         return qs

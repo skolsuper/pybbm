@@ -49,7 +49,7 @@ urlpatterns = [
     url('^topics/(?P<pk>\d+)/subscribe/$', add_subscription, name='add_subscription'),
 
     # Post
-    url('^posts/$', ListCreatePostView.as_view(), name='add_post'),
+    url('^posts/$', ListCreatePostView.as_view(), name='post_list'),
     url('^posts/(?P<pk>\d+)/$', PostView.as_view(), name='post'),
     url('^posts/(?P<pk>\d+)/edit/$', UpdatePostView.as_view(), name='edit_post'),
     url('^posts/(?P<pk>\d+)/delete/$', DeletePostView.as_view(), name='delete_post'),
