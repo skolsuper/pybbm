@@ -7,12 +7,10 @@ from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker
 from pybb.templatetags.pybb_tags import pybb_topic_unread
 
 
-def test_read_tracking(user, topic):
+def test_read_tracking(user, topic, api_client):
     if not getattr(connection.features, 'supports_microsecond_precision', False):
         pytest.skip('Database doesn\'t support microsecond precision')
 
-    post = Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
-    client = APIClient()
     client.force_authenticate(user)
     # Topic status
     tree = html.fromstring(client.get(topic.forum.get_absolute_url()).content)
@@ -68,9 +66,9 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
     topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
     Post.objects.create(topic=topic_2, user=user, body='one', user_ip='0.0.0.0')
 
-    user_ann = django_user_model.objects.create_user('ann', 'ann@localhost', 'ann')
-    client_ann = APIClient()
-    client_ann.force_authenticate(user_ann)
+    user_alice = django_user_model.objects.create_user('alice', 'alice@localhost', 'alice')
+    client_alice = APIClient()
+    client_alice.force_authenticate(user_alice)
 
     user_bob = django_user_model.objects.create_user('bob', 'bob@localhost', 'bob')
     client_bob = APIClient()
@@ -80,11 +78,11 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
     assert TopicReadTracker.objects.count() == 0
     assert ForumReadTracker.objects.count() == 0
 
-    # user_ann reads topic_1, she should get one topic read tracker, there should be no forum read trackers
-    client_ann.get(topic.get_absolute_url())
+    # user_alice reads topic_1, she should get one topic read tracker, there should be no forum read trackers
+    client_alice.get(topic.get_absolute_url())
     assert TopicReadTracker.objects.all().count() == 1
-    assert TopicReadTracker.objects.filter(user=user_ann).count() == 1
-    assert TopicReadTracker.objects.filter(user=user_ann, topic=topic).count() == 1
+    assert TopicReadTracker.objects.filter(user=user_alice).count() == 1
+    assert TopicReadTracker.objects.filter(user=user_alice, topic=topic).count() == 1
     assert ForumReadTracker.objects.all().count() == 0
 
     # user_bob reads topic, he should get one topic read tracker, there should be no forum read trackers
@@ -104,32 +102,32 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
     for item in (t.unread for t in pybb_topic_unread([topic, topic_2], user_bob)):
         assert not item
 
-    # user_ann creates topic_3, they should get a new topic read tracker in the db
+    # user_alice creates topic_3, they should get a new topic read tracker in the db
     add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': forum.id})
     values = {
         'body': 'topic_3',
         'name': 'topic_3',
         'poll_type': 0
     }
-    client_ann.post(add_topic_url, data=values, follow=True)
+    client_alice.post(add_topic_url, data=values, follow=True)
     assert TopicReadTracker.objects.all().count() == 2
-    assert TopicReadTracker.objects.filter(user=user_ann).count() == 2
+    assert TopicReadTracker.objects.filter(user=user_alice).count() == 2
     assert ForumReadTracker.objects.all().count() == 1
     topic_3 = Topic.objects.order_by('-posts__updated', '-id')[0]
     assert topic_3.name == 'topic_3'
 
-    # user_ann posts to topic, a topic they've already read, no new trackers should be created
+    # user_alice posts to topic, a topic they've already read, no new trackers should be created
     add_post_url = reverse('pybb:add_post', kwargs={'topic_id': topic.id})
     values = {
         'body': 'test tracking'
     }
-    client_ann.post(add_post_url, values, follow=True)
+    client_alice.post(add_post_url, values, follow=True)
     assert TopicReadTracker.objects.all().count() == 2
-    assert TopicReadTracker.objects.filter(user=user_ann).count() == 2
+    assert TopicReadTracker.objects.filter(user=user_alice).count() == 2
     assert ForumReadTracker.objects.all().count() == 1
 
     # user_bob has two unread topics, 'topic' and 'topic_3'.
-    #   This is because user_ann created a new topic and posted to an existing topic,
+    #   This is because user_alice created a new topic and posted to an existing topic,
     #   after user_bob got his forum read tracker.
 
     # user_bob reads 'topic'
@@ -141,7 +139,7 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
     assert ForumReadTracker.objects.all().count() == 1
     assert ForumReadTracker.objects.all()[0].time_stamp == previous_time
     assert TopicReadTracker.objects.filter(user=user_bob).count() == 1
-    assert TopicReadTracker.objects.filter(user=user_ann).count() == 2
+    assert TopicReadTracker.objects.filter(user=user_alice).count() == 2
     assert TopicReadTracker.objects.all().count() == 3
 
     # user_bob reads the last unread topic, 'topic_3'.
@@ -221,49 +219,49 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
 #     Post.objects.create(topic=topic_2, user=user, body='two', user_ip='0.0.0.0').save()
 #     Post.objects.create(topic=topic_3, user=user, body='three', user_ip='0.0.0.0').save()
 #
-#     user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
-#     client_ann = Client()
-#     client_ann.login(username='ann', password='ann')
+#     user_alice = User.objects.create_user('alice', 'alice@localhost', 'alice')
+#     client_alice = Client()
+#     client_alice.login(username='alice', password='alice')
 #
 #     # Two topics, each with one post. everything is unread, so the db should reflect that:
-#     self.assertTrue(pybb_is_topic_unread(topic_1, user_ann))
-#     self.assertTrue(pybb_is_topic_unread(topic_2, user_ann))
-#     self.assertTrue(pybb_is_topic_unread(topic_3, user_ann))
+#     self.assertTrue(pybb_is_topic_unread(topic_1, user_alice))
+#     self.assertTrue(pybb_is_topic_unread(topic_2, user_alice))
+#     self.assertTrue(pybb_is_topic_unread(topic_3, user_alice))
 #     self.assertListEqual(
-#         [t.unread for t in pybb_topic_unread([topic_1, topic_2, topic_3], user_ann)],
+#         [t.unread for t in pybb_topic_unread([topic_1, topic_2, topic_3], user_alice)],
 #         [True, True, True])
 #
-#     client_ann.get(topic_1.get_absolute_url())
+#     client_alice.get(topic_1.get_absolute_url())
 #     topic_1 = Topic.objects.get(id=topic_1.id)
 #     topic_2 = Topic.objects.get(id=topic_2.id)
 #     topic_3 = Topic.objects.get(id=topic_3.id)
-#     self.assertFalse(pybb_is_topic_unread(topic_1, user_ann))
-#     self.assertTrue(pybb_is_topic_unread(topic_2, user_ann))
-#     self.assertTrue(pybb_is_topic_unread(topic_3, user_ann))
+#     self.assertFalse(pybb_is_topic_unread(topic_1, user_alice))
+#     self.assertTrue(pybb_is_topic_unread(topic_2, user_alice))
+#     self.assertTrue(pybb_is_topic_unread(topic_3, user_alice))
 #     self.assertListEqual(
-#         [t.unread for t in pybb_topic_unread([topic_1, topic_2, topic_3], user_ann)],
+#         [t.unread for t in pybb_topic_unread([topic_1, topic_2, topic_3], user_alice)],
 #         [False, True, True])
 #
-#     client_ann.get(topic_2.get_absolute_url())
+#     client_alice.get(topic_2.get_absolute_url())
 #     topic_1 = Topic.objects.get(id=topic_1.id)
 #     topic_2 = Topic.objects.get(id=topic_2.id)
 #     topic_3 = Topic.objects.get(id=topic_3.id)
-#     self.assertFalse(pybb_is_topic_unread(topic_1, user_ann))
-#     self.assertFalse(pybb_is_topic_unread(topic_2, user_ann))
-#     self.assertTrue(pybb_is_topic_unread(topic_3, user_ann))
+#     self.assertFalse(pybb_is_topic_unread(topic_1, user_alice))
+#     self.assertFalse(pybb_is_topic_unread(topic_2, user_alice))
+#     self.assertTrue(pybb_is_topic_unread(topic_3, user_alice))
 #     self.assertListEqual(
-#         [t.unread for t in pybb_topic_unread([topic_1, topic_2, topic_3], user_ann)],
+#         [t.unread for t in pybb_topic_unread([topic_1, topic_2, topic_3], user_alice)],
 #         [False, False, True])
 #
-#     client_ann.get(topic_3.get_absolute_url())
+#     client_alice.get(topic_3.get_absolute_url())
 #     topic_1 = Topic.objects.get(id=topic_1.id)
 #     topic_2 = Topic.objects.get(id=topic_2.id)
 #     topic_3 = Topic.objects.get(id=topic_3.id)
-#     self.assertFalse(pybb_is_topic_unread(topic_1, user_ann))
-#     self.assertFalse(pybb_is_topic_unread(topic_2, user_ann))
-#     self.assertFalse(pybb_is_topic_unread(topic_3, user_ann))
+#     self.assertFalse(pybb_is_topic_unread(topic_1, user_alice))
+#     self.assertFalse(pybb_is_topic_unread(topic_2, user_alice))
+#     self.assertFalse(pybb_is_topic_unread(topic_3, user_alice))
 #     self.assertListEqual(
-#         [t.unread for t in pybb_topic_unread([topic_1, topic_2, topic_3], user_ann)],
+#         [t.unread for t in pybb_topic_unread([topic_1, topic_2, topic_3], user_alice)],
 #         [False, False, False])
 #
 # def test_is_forum_unread_filter(self):
@@ -281,38 +279,38 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
 #     Post.objects.create(topic=topic_2, user=user, body='two', user_ip='0.0.0.0')
 #     Post.objects.create(topic=topic_3, user=user, body='three', user_ip='0.0.0.0')
 #
-#     user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
-#     client_ann = Client()
-#     client_ann.login(username='ann', password='ann')
+#     user_alice = User.objects.create_user('alice', 'alice@localhost', 'alice')
+#     client_alice = Client()
+#     client_alice.login(username='alice', password='alice')
 #
 #     forum_parent = Forum.objects.get(id=forum_parent.id)
 #     forum_child1 = Forum.objects.get(id=forum_child1.id)
 #     forum_child2 = Forum.objects.get(id=forum_child2.id)
-#     self.assertListEqual([f.unread for f in pybb_forum_unread([forum_parent, forum_child1, forum_child2], user_ann)],
+#     self.assertListEqual([f.unread for f in pybb_forum_unread([forum_parent, forum_child1, forum_child2], user_alice)],
 #                          [True, True, True])
 #
 #     # unless we read parent topic, there is unreaded topics in child forums
-#     client_ann.get(topic_1.get_absolute_url())
+#     client_alice.get(topic_1.get_absolute_url())
 #     forum_parent = Forum.objects.get(id=forum_parent.id)
 #     forum_child1 = Forum.objects.get(id=forum_child1.id)
 #     forum_child2 = Forum.objects.get(id=forum_child2.id)
-#     self.assertListEqual([f.unread for f in pybb_forum_unread([forum_parent, forum_child1, forum_child2], user_ann)],
+#     self.assertListEqual([f.unread for f in pybb_forum_unread([forum_parent, forum_child1, forum_child2], user_alice)],
 #                          [True, True, True])
 #
 #     # still unreaded topic in one of the child forums
-#     client_ann.get(topic_2.get_absolute_url())
+#     client_alice.get(topic_2.get_absolute_url())
 #     forum_parent = Forum.objects.get(id=forum_parent.id)
 #     forum_child1 = Forum.objects.get(id=forum_child1.id)
 #     forum_child2 = Forum.objects.get(id=forum_child2.id)
-#     self.assertListEqual([f.unread for f in pybb_forum_unread([forum_parent, forum_child1, forum_child2], user_ann)],
+#     self.assertListEqual([f.unread for f in pybb_forum_unread([forum_parent, forum_child1, forum_child2], user_alice)],
 #                          [True, False, True])
 #
 #     # all topics readed
-#     client_ann.get(topic_3.get_absolute_url())
+#     client_alice.get(topic_3.get_absolute_url())
 #     forum_parent = Forum.objects.get(id=forum_parent.id)
 #     forum_child1 = Forum.objects.get(id=forum_child1.id)
 #     forum_child2 = Forum.objects.get(id=forum_child2.id)
-#     self.assertListEqual([f.unread for f in pybb_forum_unread([forum_parent, forum_child1, forum_child2], user_ann)],
+#     self.assertListEqual([f.unread for f in pybb_forum_unread([forum_parent, forum_child1, forum_child2], user_alice)],
 #                          [False, False, False])
 #
 # @skipUnlessDBFeature('supports_microsecond_precision')
@@ -327,18 +325,18 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
 #     Post.objects.create(topic=topic_1, user=user, body='one', user_ip='0.0.0.0')
 #     Post.objects.create(topic=topic_2, user=user, body='two', user_ip='0.0.0.0')
 #
-#     user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
-#     client_ann = Client()
-#     client_ann.login(username='ann', password='ann')
+#     user_alice = User.objects.create_user('alice', 'alice@localhost', 'alice')
+#     client_alice = Client()
+#     client_alice.login(username='alice', password='alice')
 #
 #     # Everything is unread
-#     self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_ann)], [True, True])
-#     self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_ann)], [True, True])
+#     self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_alice)], [True, True])
+#     self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_alice)], [True, True])
 #
 #     # read all
-#     client_ann.get(reverse('pybb:mark_all_as_read'))
-#     self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_ann)], [False, False])
-#     self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_ann)], [False, False])
+#     client_alice.get(reverse('pybb:mark_all_as_read'))
+#     self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_alice)], [False, False])
+#     self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_alice)], [False, False])
 #
 #     post = Post.objects.create(topic=topic_1, user=user, body='three', user_ip='0.0.0.0')
 #     post = Post.objects.get(id=post.id)  # get post with timestamp from DB
@@ -347,8 +345,8 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
 #     topic_2 = Topic.objects.get(id=topic_2.id)
 #     self.assertAlmostEqual(topic_1.updated, post.updated or post.created, delta=datetime.timedelta(milliseconds=50))
 #     self.assertAlmostEqual(forum_1.updated, post.updated or post.created, delta=datetime.timedelta(milliseconds=50))
-#     self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_ann)], [True, False])
-#     self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_ann)], [True, False])
+#     self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_alice)], [True, False])
+#     self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_alice)], [True, False])
 #
 #     post.topic = topic_2
 #     post.save()
@@ -358,8 +356,8 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
 #     forum_2 = Forum.objects.get(id=forum_2.id)
 #     self.assertAlmostEqual(topic_2.updated, post.updated or post.created, delta=datetime.timedelta(milliseconds=50))
 #     self.assertAlmostEqual(forum_2.updated, post.updated or post.created, delta=datetime.timedelta(milliseconds=50))
-#     self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_ann)], [False, True])
-#     self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_ann)], [False, True])
+#     self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_alice)], [False, True])
+#     self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_alice)], [False, True])
 #
 #     topic_2.forum = forum_1
 #     topic_2.save()
@@ -368,8 +366,8 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
 #     forum_1 = Forum.objects.get(id=forum_1.id)
 #     forum_2 = Forum.objects.get(id=forum_2.id)
 #     self.assertAlmostEqual(forum_1.updated, post.updated or post.created, delta=datetime.timedelta(milliseconds=50))
-#     self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_ann)], [False, True])
-#     self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_ann)], [True, False])
+#     self.assertListEqual([t.unread for t in pybb_topic_unread([topic_1, topic_2], user_alice)], [False, True])
+#     self.assertListEqual([t.unread for t in pybb_forum_unread([forum_1, forum_2], user_alice)], [True, False])
 #
 # @skipUnlessDBFeature('supports_microsecond_precision')
 # def test_open_first_unread_post(self):
@@ -383,21 +381,21 @@ def test_read_tracking_multi_user(user, topic, django_user_model):
 #     post_1_2 = Post.objects.create(topic=topic_1, user=user, body='1_2', user_ip='0.0.0.0')
 #     post_2_1 = Post.objects.create(topic=topic_2, user=user, body='2_1', user_ip='0.0.0.0')
 #
-#     user_ann = User.objects.create_user('ann', 'ann@localhost', 'ann')
-#     client_ann = Client()
-#     client_ann.login(username='ann', password='ann')
+#     user_alice = User.objects.create_user('alice', 'alice@localhost', 'alice')
+#     client_alice = Client()
+#     client_alice.login(username='alice', password='alice')
 #
-#     response = client_ann.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
+#     response = client_alice.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
 #     self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_1.get_absolute_url(), 1, post_1_1.id))
 #
-#     response = client_ann.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
+#     response = client_alice.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
 #     self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_1.get_absolute_url(), 1, post_1_2.id))
 #
-#     response = client_ann.get(topic_2.get_absolute_url(), data={'first-unread': 1}, follow=True)
+#     response = client_alice.get(topic_2.get_absolute_url(), data={'first-unread': 1}, follow=True)
 #     self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_2.get_absolute_url(), 1, post_2_1.id))
 #
 #     post_1_3 = Post.objects.create(topic=topic_1, user=user, body='1_3', user_ip='0.0.0.0')
 #     post_1_4 = Post.objects.create(topic=topic_1, user=user, body='1_4', user_ip='0.0.0.0')
 #
-#     response = client_ann.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
+#     response = client_alice.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
 #     self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_1.get_absolute_url(), 1, post_1_3.id))
