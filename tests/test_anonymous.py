@@ -12,7 +12,7 @@ from rest_framework.test import APITestCase
 
 from pybb import util
 from pybb.models import Category, Forum, Topic, Post
-from pybb.settings import settings as pybb_settings
+from pybb.settings import settings
 User = get_user_model()
 
 
@@ -70,21 +70,37 @@ class AnonymousTest(APITestCase):
         url = self.topic.get_absolute_url()
         self.client.get(url)
         self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)), 1)
-        for _ in range(pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER - 2):
+        for _ in range(settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER - 2):
             self.client.get(url)
         self.assertEqual(Topic.objects.get(id=self.topic.id).views, 0)
         self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)),
-                         pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER - 1)
+                         settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER - 1)
         self.client.get(url)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).views, pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
+        self.assertEqual(Topic.objects.get(id=self.topic.id).views, settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
         self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)), 0)
 
         views = Topic.objects.get(id=self.topic.id).views
 
-        pybb_settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = None
+        settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = None
         self.client.get(url)
         self.assertEqual(Topic.objects.get(id=self.topic.id).views, views + 1)
         self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)), 0)
+
+    @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False)
+    def test_anon_topic_add(self):
+        with self.settings(PYBB_PERMISSION_HANDLER='test.test_project.permissions.RestrictEditingHandler'):
+            # access without user should be redirected
+            add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
+            r = self.get_with_user(add_topic_url)
+            self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % add_topic_url)
+
+            # access with (unauthorized) user should get 403 (forbidden)
+            r = self.get_with_user(add_topic_url, 'staff', 'staff')
+            self.assertEquals(r.status_code, 403)
+
+        # allowed user is allowed
+        r = self.get_with_user(add_topic_url, 'staff', 'staff')
+        self.assertEquals(r.status_code, 200)
 
     def create_user(self):
         self.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')

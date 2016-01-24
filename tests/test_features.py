@@ -18,6 +18,7 @@ from pybb.templatetags.pybb_tags import pybb_get_latest_topics, pybb_get_latest_
 User = get_user_model()
 Profile = util.get_pybb_profile_model()
 
+
 @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False, PYBB_PREMODERATION=False)
 class FeaturesTest(APITestCase):
 
@@ -472,3 +473,32 @@ class FeaturesTest(APITestCase):
         self.assertEqual(len(latest_topics), 5)
         self.assertEqual(latest_topics[0].body, 'post9')
         self.assertEqual(latest_topics[4].body, 'post5')
+
+    def test_user_delete_cascade(self):
+        user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
+        profile = getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME, None)
+        self.assertIsNotNone(profile)
+        post = Post.objects.create(topic=self.topic, user=user, body='I \'ll be back', user_ip='0.0.0.0')
+        user_pk = user.pk
+        profile_pk = profile.pk
+        post_pk = post.pk
+
+        user.delete()
+        self.assertFalse(User.objects.filter(pk=user_pk).exists())
+        self.assertFalse(Profile.objects.filter(pk=profile_pk).exists())
+        self.assertFalse(Post.objects.filter(pk=post_pk).exists())
+
+    def test_redirect_post_edit(self):
+        with self.settings(PYBB_PERMISSION_HANDLER='test.test_project.permissions.RestrictEditingHandler'):
+            # access without user should be redirected
+            edit_post_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})
+            r = self.get_with_user(edit_post_url)
+            self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % edit_post_url)
+
+            # access with (unauthorized) user should get 403 (forbidden)
+            r = self.get_with_user(edit_post_url, 'staff', 'staff')
+            self.assertEquals(r.status_code, 403)
+
+        # allowed user is allowed
+        r = self.get_with_user(edit_post_url, 'staff', 'staff')
+        self.assertEquals(r.status_code, 200)
