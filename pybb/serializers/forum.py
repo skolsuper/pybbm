@@ -21,8 +21,8 @@ class ForumSerializer(serializers.ModelSerializer):
         if user.is_anonymous():
             return False
 
-        last_updated = Post.objects.filter(topic__forum=forum).aggregate(Max('created'))['created_max']
+        last_updated = Post.objects.filter(topic__forum=forum).aggregate(Max('created'))['created__max']
         if last_updated is None:
             return False
 
-        return not ForumReadTracker.objects.filter(user=user, forum=forum, timestamp__gte=last_updated).exists()
+        return not ForumReadTracker.objects.filter(user=user, forum=forum, time_stamp__gte=last_updated).exists()

@@ -33,7 +33,8 @@ class ListCreatePostView(PermissionsMixin, ListCreateAPIView):
         topic_pk = self.request.query_params.get('topic', None)
         if topic_pk is not None:
             if not hasattr(self, '_topic'):
-                self._topic = get_object_or_404(self.perms.filter_topics(self.request.user), pk=topic_pk)
+                qs = Topic.objects.all()
+                self._topic = get_object_or_404(self.perms.filter_topics(self.request.user, qs), pk=topic_pk)
             return self._topic
 
     def get_queryset(self):
@@ -47,7 +48,7 @@ class ListCreatePostView(PermissionsMixin, ListCreateAPIView):
         response = super(ListCreatePostView, self).get_paginated_response(data)
         topic = self.get_topic()
         if topic is not None and self.request.user.is_authenticated():
-            last_read_time = response.data['results'][0]['updated']
+            last_read_time = data.serializer.instance[0].updated
             mark_read(self.request.user, topic, last_read_time)
         return response
 

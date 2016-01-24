@@ -7,31 +7,46 @@ from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker, Forum
 from pybb.templatetags.pybb_tags import pybb_topic_unread
 
 
-def test_read_tracking(user, topic, api_client):
+def test_read_tracking(user, topic, api_client, admin_user):
     if not getattr(connection.features, 'supports_microsecond_precision', False):
-        pytest.skip('Database doesn\'t support microsecond precision')
+        pytest.skip('Database time precision not high enough')
+    Topic.objects.create(forum=topic.forum, name='other topic', user=admin_user)
+    for t in Topic.objects.all():
+        Post.objects.create(topic=t, user=admin_user, user_ip='0.0.0.0', body='Topics need a post')
 
     api_client.force_authenticate(user)
-    # Topic status
+    # Forum status
     response = api_client.get(topic.forum.get_absolute_url())
     assert response.status_code == 200
     assert response.data['unread']
-    # Forum status
-    response = api_client.get(reverse('pybb:index'))
+    response = api_client.get(reverse('pybb:forum_list'))
     assert response.data['results'][0]['unread']
-    # Visit it
-    api_client.get(topic.get_absolute_url())
-    # Topic status - readed
-    response = api_client.get(topic.forum.get_absolute_url())
-    # Visit others
+
+    # Topic status
+    response = api_client.get(topic.get_absolute_url())
+    assert response.status_code == 200
+    assert response.data['unread']
+    response = api_client.get(reverse('pybb:topic_list'), {'forum': topic.forum.id})
+    assert response.data['results'][0]['unread']
+
+    # Read the posts
+    post_list_url = reverse('pybb:post_list')
+    api_client.get(post_list_url, {'topic': topic.id})
+    # Topic status - read
+    response = api_client.get(topic.get_absolute_url())
     assert not response.data['unread']
+    # Forum status - read
+    response = api_client.get(topic.forum.get_absolute_url())
+    assert response.data['unread']
+    # Visit others
     for t in topic.forum.topics.all():
-        api_client.get(t.get_absolute_url())
-    # Forum status - readed
-    response = api_client.get(reverse('pybb:index'))
+        api_client.get(post_list_url, {'topic': t.id})
+    # Forum status - read
+    response = api_client.get(reverse('pybb:forum_list'))
     assert not response.data['results'][0]['unread']
+
     # Post message
-    add_post_url = reverse('pybb:post_list')
+    add_post_url = post_list_url
     values = {
         'topic': topic.id,
         'body': 'test tracking'

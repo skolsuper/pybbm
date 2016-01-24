@@ -18,7 +18,7 @@ class TopicReadTracker(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL)
     topic = models.ForeignKey('Topic')
-    time_stamp = models.DateTimeField()
+    time_stamp = models.DateTimeField(null=True)
 
 
 class ForumReadTracker(models.Model):
@@ -33,4 +33,4 @@ class ForumReadTracker(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL)
     forum = models.ForeignKey('Forum')
-    time_stamp = models.DateTimeField()
+    time_stamp = models.DateTimeField(null=True)

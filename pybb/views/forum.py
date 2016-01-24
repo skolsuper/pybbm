@@ -54,6 +54,16 @@ class CategoryView(PermissionsMixin, RetrieveAPIView):
         return super(CategoryView, self).get(*args, **kwargs)
 
 
+class ForumList(PermissionsMixin, ListAPIView):
+
+    queryset = Forum.objects.all()
+    serializer_class = ForumSerializer
+    pagination_class = PybbTopicPagination
+
+    def get_queryset(self):
+        return self.perms.filter_forums(self.request.user, self.queryset)
+
+
 class ForumView(PermissionsMixin, RetrieveAPIView):
 
     queryset = Forum.objects.all()

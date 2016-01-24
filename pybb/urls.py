@@ -6,7 +6,7 @@ from django.conf.urls import url
 
 from pybb.feeds import LastPosts, LastTopics
 from pybb.views import (
-    CategoryList, CategoryView, ForumView, TopicView, ListCreatePostView, UpdatePostView,
+    CategoryList, CategoryView, ForumList, ForumView, TopicView, ListCreatePostView, UpdatePostView,
     UserView, PostView, ProfileEditView, DeletePostView, StickTopicView, UnstickTopicView,
     CloseTopicView, OpenTopicView, moderate_post, TopicPollVoteView, ListCreateTopicsView,
     UserTopics, UserPosts, topic_cancel_poll_vote, block_user, unblock_user, delete_subscription,
@@ -19,8 +19,9 @@ urlpatterns = [
     url('^feeds/topics/$', LastTopics(), name='feed_topics'),
     # Index, Category, Forum
     url('^$', CategoryList.as_view(), name='index'),
-    url('^category/(?P<pk>\d+)/$', CategoryView.as_view(), name='category'),
-    url('^forum/(?P<pk>\d+)/$', ForumView.as_view(), name='forum'),
+    url('^categories/(?P<pk>\d+)/$', CategoryView.as_view(), name='category'),
+    url('^forums/$', ForumList.as_view(), name='forum_list'),
+    url('^forums/(?P<pk>\d+)/$', ForumView.as_view(), name='forum'),
 
     # User
     url('^users/(?P<username>[^/]+)/$', UserView.as_view(), name='user'),
