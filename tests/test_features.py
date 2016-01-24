@@ -8,9 +8,8 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.urlresolvers import reverse
 from django.test import skipUnlessDBFeature, Client, override_settings
-from lxml import html
 from pydash import py_
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APITestCase
 
 from pybb import util
 from pybb.models import Forum, Topic, Post, Category
@@ -261,15 +260,6 @@ class FeaturesTest(APITestCase):
         user = User.objects.get(username=user.username)
         self.assertTrue(user.is_active)
 
-    def test_ajax_preview(self):
-        post_data = {
-            'markup': 'bbcode',
-            'message': '[b]test bbcode ajax preview[/b]'
-        }
-        response = self.client.post(reverse('pybb:preview_post'), data=post_data)
-        self.assertEqual(response.data['markup'], 'bbcode')
-        self.assertEqual(response.data['html'], '<strong>test bbcode ajax preview</strong>')
-
     def test_headline(self):
         category = Category.objects.create(name='foo')
         forum = Forum.objects.create(category=category, name='foo')
@@ -373,118 +363,6 @@ class FeaturesTest(APITestCase):
         self.client.force_authenticate(peon)
         response = self.client.post(add_post_url, values, follow=True)
         self.assertEqual(response.status_code, 201)
-
-    def test_subscription(self):
-        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
-        user2 = User.objects.create_user(username='user2', password='user2', email='user2@someserver.com')
-        user3 = User.objects.create_user(username='user3', password='user3', email='user3@example.com')
-        client = APIClient()
-
-        client.force_authenticate(user2)
-        subscribe_url = reverse('pybb:add_subscription', args=[topic.id])
-        response = client.get(topic.get_absolute_url())
-        subscribe_links = html.fromstring(response.content).xpath('//a[@href="%s"]' % subscribe_url)
-        self.assertEqual(len(subscribe_links), 1)
-
-        response = client.get(subscribe_url, follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(user2, topic.subscribers.all())
-
-        topic.subscribers.add(user3)
-
-        # create a new reply (with another user)
-        client.force_authenticate(superuser)
-        add_post_url = reverse('pybb:add_post', args=[topic.id])
-        response = client.get(add_post_url)
-        values = self.get_form_values(response)
-        values['body'] = 'test subscribtion юникод'
-        response = client.post(add_post_url, values, follow=True)
-        self.assertEqual(response.status_code, 200)
-        new_post = Post.objects.order_by('-id')[0]
-
-        # there should only be one email in the outbox (to user2) because @example.com are ignored
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to[0], user2.email)
-        self.assertTrue([msg for msg in mail.outbox if new_post.get_absolute_url() in msg.body])
-
-        # unsubscribe
-        client.force_authenticate(user2)
-        self.assertTrue([msg for msg in mail.outbox if new_post.get_absolute_url() in msg.body])
-        response = client.get(reverse('pybb:delete_subscription', args=[topic.id]), follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertNotIn(user2, topic.subscribers.all())
-
-    @override_settings(PYBB_DISABLE_SUBSCRIPTIONS=True)
-    def test_subscription_disabled(self):
-        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
-        user2 = User.objects.create_user(username='user2', password='user2', email='user2@someserver.com')
-        user3 = User.objects.create_user(username='user3', password='user3', email='user3@example.com')
-        client = APIClient()
-
-        client.force_authenticate(user2)
-        subscribe_url = reverse('pybb:add_subscription', args=[topic.id])
-        response = client.get(topic.get_absolute_url())
-        subscribe_links = html.fromstring(response.content).xpath('//a[@href="%s"]' % subscribe_url)
-        self.assertEqual(len(subscribe_links), 0)
-
-        response = client.get(subscribe_url, follow=True)
-        self.assertEqual(response.status_code, 403)
-
-        self.topic.subscribers.add(user3)
-
-        # create a new reply (with another user)
-        self.client.force_authenticate(superuser)
-        add_post_url = reverse('pybb:add_post', args=[topic.id])
-        response = self.client.get(add_post_url)
-        values = self.get_form_values(response)
-        values['body'] = 'test subscribtion юникод'
-        response = self.client.post(add_post_url, values, follow=True)
-        self.assertEqual(response.status_code, 200)
-        new_post = Post.objects.order_by('-id')[0]
-
-        # there should be one email in the outbox (user3)
-        # because already subscribed users will still receive notifications.
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to[0], user3.email)
-
-    @override_settings(PYBB_DISABLE_NOTIFICATIONS=True)
-    def test_notifications_disabled(self):
-        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
-        user2 = User.objects.create_user(username='user2', password='user2', email='user2@someserver.com')
-        user3 = User.objects.create_user(username='user3', password='user3', email='user3@example.com')
-        client = APIClient()
-
-        client.force_authenticate(user2)
-        subscribe_url = reverse('pybb:add_subscription', args=[topic.id])
-        response = client.get(subscribe_url, follow=True)
-        self.assertEqual(response.status_code, 405, 'GET requests should not change subscriptions')
-
-        response = client.post(subscribe_url, follow=True)
-        self.assertEqual(response.status_code, 200)
-
-        topic.subscribers.add(user3)
-
-        # create a new reply (with another user)
-        self.client.force_authenticate(superuser)
-        add_post_url = reverse('pybb:add_post')
-        values = {
-            'body': 'test subscribtion юникод',
-            'topic': topic.id
-        }
-        response = self.client.post(add_post_url, values, follow=True)
-        self.assertEqual(response.status_code, 201)
-
-        # there should be no email in the outbox
-        self.assertEqual(len(mail.outbox), 0)
 
     @skipUnlessDBFeature('supports_microsecond_precision')
     def test_topic_updated(self):
