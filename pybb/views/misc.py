@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, get_list_or_404
 from django.utils.translation import ugettext as _
 from rest_framework import status
 from rest_framework.decorators import permission_classes, api_view
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotFound
 from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from pybb.models import Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser, PollAnswer
 from pybb.permissions import get_perms, PermissionsMixin
 from pybb.serializers import TopicSerializer
+from pybb.settings import settings
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD
@@ -113,6 +114,8 @@ def delete_subscription(request, pk):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def add_subscription(request, pk):
+    if settings.PYBB_DISABLE_SUBSCRIPTIONS:
+        raise NotFound
     perms = get_perms()
     topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=pk)
     if not perms.may_subscribe_topic(request.user, topic):

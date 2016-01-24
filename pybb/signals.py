@@ -5,26 +5,28 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.signals import post_save, pre_save
-from django.dispatch import Signal
+from django.dispatch import Signal, receiver
 
-from pybb import util, settings as defaults
+from pybb import util
 from pybb.models import Post, Category, Topic, Forum
 from pybb.permissions import get_perms
-from pybb.subscription import notify_topic_subscribers
+from pybb.settings import settings
 from pybb.util import create_or_check_slug
 
 topic_updated = Signal(providing_args=['post', 'request'])
 
 
-def post_saved(instance, **kwargs):
-    if kwargs['created'] and instance.user is not None:
-        perms = get_perms()
-        if not defaults.settings.PYBB_DISABLE_SUBSCRIPTIONS and util.get_pybb_profile(instance.user).autosubscribe and \
-                perms.may_subscribe_topic(instance.user, instance.topic):
-            instance.topic.subscribers.add(instance.user)
+@receiver(post_save, sender=Post)
+def forum_post_saved(sender, instance, created, **kwargs):
+    if created and \
+            instance.user is not None and \
+            not settings.PYBB_DISABLE_SUBSCRIPTIONS and \
+            util.get_pybb_profile(instance.user).autosubscribe and \
+            get_perms().may_subscribe_topic(instance.user, instance.topic):
+        instance.topic.subscribers.add(instance.user)
 
 
-def user_saved(instance, created, **kwargs):
+def user_saved(sender, instance, created, **kwargs):
     if not created:
         return
 
@@ -35,10 +37,10 @@ def user_saved(instance, created, **kwargs):
         return
     instance.user_permissions.add(add_post_permission, add_topic_permission)
 
-    if defaults.settings.PYBB_PROFILE_RELATED_NAME:
+    if settings.PYBB_PROFILE_RELATED_NAME:
         ModelProfile = util.get_pybb_profile_model()
         profile = ModelProfile()
-        setattr(instance, defaults.settings.PYBB_PROFILE_RELATED_NAME, profile)
+        setattr(instance, settings.PYBB_PROFILE_RELATED_NAME, profile)
         profile.save()
 
 
@@ -49,13 +51,12 @@ def get_save_slug(extra_field=None):
     :param extra_field: field needed in case of a unique_together.
     '''
     if extra_field:
-        def save_slug(**kwargs):
-            extra_filters = {}
-            extra_filters[extra_field] = getattr(kwargs.get('instance'), extra_field)
-            kwargs['instance'].slug = create_or_check_slug(kwargs['instance'], kwargs['sender'], **extra_filters)
+        def save_slug(sender, instance, **kwargs):
+            extra_filters = {extra_field: getattr(instance, extra_field)}
+            instance.slug = create_or_check_slug(instance, sender, **extra_filters)
     else:
-        def save_slug(**kwargs):
-            kwargs['instance'].slug = create_or_check_slug(kwargs['instance'], kwargs['sender'])
+        def save_slug(sender, instance, **kwargs):
+            instance.slug = create_or_check_slug(instance, sender)
     return save_slug
 
 
@@ -68,8 +69,5 @@ def setup():
     pre_save.connect(pre_save_category_slug, sender=Category)
     pre_save.connect(pre_save_forum_slug, sender=Forum)
     pre_save.connect(pre_save_topic_slug, sender=Topic)
-    post_save.connect(post_saved, sender=Post)
-    if not defaults.settings.PYBB_DISABLE_NOTIFICATIONS:
-        topic_updated.connect(notify_topic_subscribers, sender=Post)
-    if defaults.settings.PYBB_AUTO_USER_PERMISSIONS:
+    if settings.PYBB_AUTO_USER_PERMISSIONS:
         post_save.connect(user_saved, sender=get_user_model())

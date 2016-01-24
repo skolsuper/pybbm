@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
-
 from __future__ import unicode_literals
 
 from django.conf import settings as django_settings
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.urlresolvers import reverse
 from django.core.validators import validate_email
 from django.template.loader import render_to_string
 from django.utils import translation
 
-from pybb import util, compat
+from pybb import util
 from pybb.settings import settings
 
 if settings.PYBB_USE_DJANGO_MAILER:
@@ -22,9 +21,7 @@ else:
     from django.core.mail import send_mass_mail
 
 
-def notify_topic_subscribers(post, current_site, *args, **kwargs):
-    if settings.PYBB_DISABLE_NOTIFICATIONS:
-        return
+def notify_topic_subscribers(post, current_site):
     topic = post.topic
     if post != topic.head:
         old_lang = translation.get_language()
@@ -40,14 +37,14 @@ def notify_topic_subscribers(post, current_site, *args, **kwargs):
         subject = ''.join(subject.splitlines())
 
         mails = tuple()
-        for user in topic.subscribers.exclude(pk=post.user.pk):
+        subscribers = topic.subscribers.all()
+        if post.user is not None:
+            subscribers = subscribers.exclude(pk=post.user.pk)
+        for user in subscribers:
             try:
                 validate_email(user.email)
-            except:
+            except ValidationError:
                 # Invalid email
-                continue
-
-            if user.email == '%s@example.com' % user.get_username():
                 continue
 
             lang = util.get_pybb_profile(user).language or django_settings.LANGUAGE_CODE

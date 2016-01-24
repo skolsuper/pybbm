@@ -1,7 +1,13 @@
-from django import VERSION
+from django.apps import AppConfig
+from django.utils.translation import ugettext_lazy as _
 
-if VERSION[:2] < (1, 7):
-    from pybb import signals
-    signals.setup()
-else:
-    default_app_config = 'pybb.apps.PybbConfig'
+default_app_config = 'pybb.PybbConfig'
+
+
+class PybbConfig(AppConfig):
+    name = 'pybb'
+    verbose_name = _('Pybbm forum solution')
+
+    def ready(self):
+        from pybb import signals
+        signals.setup()

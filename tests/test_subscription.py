@@ -55,7 +55,7 @@ def test_subscription_disabled(settings, admin_user, django_user_model, api_clie
     api_client.force_authenticate(user2)
     subscribe_url = reverse('pybb:add_subscription', args=[topic.id])
 
-    response = api_client.get(subscribe_url, follow=True)
+    response = api_client.post(subscribe_url, follow=True)
     assert response.status_code == 404
 
     topic.subscribers.add(user3)

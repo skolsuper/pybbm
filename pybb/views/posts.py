@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 from django.contrib.auth import get_user_model
+from django.contrib.sites.shortcuts import get_current_site
 from django.shortcuts import get_object_or_404, get_list_or_404
 from django.utils.translation import ugettext as _
 from rest_framework import status
@@ -14,6 +15,8 @@ from pybb.models import Topic, Post
 from pybb.pagination import PybbPostPagination
 from pybb.permissions import PermissionsMixin
 from pybb.serializers import PostSerializer
+from pybb.settings import settings
+from pybb.subscription import notify_topic_subscribers
 
 User = get_user_model()
 username_field = User.USERNAME_FIELD
@@ -50,6 +53,9 @@ class ListCreatePostView(PermissionsMixin, ListCreateAPIView):
         serializer = self.get_serializer(data=post_data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        if not settings.PYBB_DISABLE_NOTIFICATIONS:
+            current_site = get_current_site(request)
+            notify_topic_subscribers(serializer.instance, current_site)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
