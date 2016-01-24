@@ -5,7 +5,6 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
-import pybb.markup
 from pybb import settings as defaults, util
 from pybb.compat import get_image_field_class
 
@@ -33,8 +32,6 @@ class PybbProfile(models.Model):
         )
 
     signature = models.TextField(_('Signature'), blank=True, max_length=defaults.settings.PYBB_SIGNATURE_MAX_LENGTH)
-    signature_html = models.TextField(_('Signature HTML Version'), blank=True,
-                                      max_length=defaults.settings.PYBB_SIGNATURE_MAX_LENGTH + 30)
     time_zone = models.FloatField(_('Time zone'), choices=TZ_CHOICES, default=float(defaults.settings.PYBB_DEFAULT_TIME_ZONE))
     language = models.CharField(_('Language'), max_length=10, blank=True, choices=settings.LANGUAGES,
                                 default=settings.LANGUAGE_CODE)
@@ -44,10 +41,6 @@ class PybbProfile(models.Model):
     autosubscribe = models.BooleanField(_('Automatically subscribe'),
                                         help_text=_('Automatically subscribe to topics that you answer'),
                                         default=defaults.settings.PYBB_DEFAULT_AUTOSUBSCRIBE)
-
-    def save(self, *args, **kwargs):
-        self.signature_html = pybb.markup.get_markup_engine().format(self.signature)
-        super(PybbProfile, self).save(*args, **kwargs)
 
     @property
     def avatar_url(self):

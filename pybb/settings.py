@@ -1,7 +1,6 @@
 import os
 
 from django.conf import settings as django_settings
-from django.core.exceptions import ImproperlyConfigured
 
 defaults = {
     'PYBB_DEFAULT_TOPICS_PER_PAGE': 50,
@@ -17,12 +16,6 @@ defaults = {
 
     'PYBB_SIGNATURE_MAX_LENGTH': 1024,
     'PYBB_SIGNATURE_MAX_LINES': 3,
-
-    'PYBB_MARKUP': 'bbcode',
-    'PYBB_MARKUP_ENGINES_PATHS': {
-        'bbcode': 'pybb.markup.bbcode.BBCodeParser',
-        'markdown': 'pybb.markup.markdown.MarkdownParser'
-    },
 
     'PYBB_FREEZE_FIRST_POST': False,
 
@@ -63,7 +56,7 @@ defaults = {
     'PYBB_NOTIFY_ON_EDIT': True,
     'PYBB_PREMODERATION': False,
 
-    'PYBB_BODY_CLEANERS': ['pybb.markup.base.rstrip_str', 'pybb.markup.base.filter_blanks'],
+    'PYBB_BODY_CLEANERS': ['pybb.cleaners.rstrip_str', 'pybb.cleaners.filter_blanks'],
     'PYBB_BODY_VALIDATOR': None,
     'PYBB_POLL_MAX_ANSWERS': 10,
     'PYBB_AUTO_USER_PERMISSIONS': True,
@@ -80,6 +73,3 @@ class SettingsObject(object):
         return getattr(django_settings, item, defaults[item])
 
 settings = SettingsObject()
-
-if settings.PYBB_MARKUP not in settings.PYBB_MARKUP_ENGINES_PATHS:
-    raise ImproperlyConfigured('PYBB_MARKUP must be defined to an existing key of PYBB_MARKUP_ENGINES_PATHS')
