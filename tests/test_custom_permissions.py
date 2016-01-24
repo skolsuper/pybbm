@@ -11,7 +11,7 @@ from pybb.models import Category, Forum, Topic, Post
 User = get_user_model()
 
 
-@override_settings(PYBB_PERMISSION_HANDLER='test.test_project.test_project.permissions.CustomPermissionHandler')
+@override_settings(PYBB_PERMISSION_HANDLER='test.test_project.permissions.CustomPermissionHandler')
 class CustomPermissionHandlerTest(APITestCase):
     """ test custom permission handler """
 

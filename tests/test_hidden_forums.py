@@ -100,7 +100,7 @@ class HiddenCategoryTest(TestCase):
 
     @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False)
     def test_anon_topic_add(self):
-        with self.settings(PYBB_PERMISSION_HANDLER='test.test_project.test_project.permissions.RestrictEditingHandler'):
+        with self.settings(PYBB_PERMISSION_HANDLER='test.test_project.permissions.RestrictEditingHandler'):
             # access without user should be redirected
             add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
             r = self.get_with_user(add_topic_url)
@@ -115,7 +115,7 @@ class HiddenCategoryTest(TestCase):
         self.assertEquals(r.status_code, 200)
 
     def test_redirect_post_edit(self):
-        with self.settings(PYBB_PERMISSION_HANDLER='test.test_project.test_project.permissions.RestrictEditingHandler'):
+        with self.settings(PYBB_PERMISSION_HANDLER='test.test_project.permissions.RestrictEditingHandler'):
             # access without user should be redirected
             edit_post_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})
             r = self.get_with_user(edit_post_url)

@@ -8,9 +8,9 @@ setup(
     author_email='gelios@gmail.com',
     name='pybbm',
     url='http://www.pybbm.org/',
-    packages=find_packages(),
+    packages=find_packages(exclude=('docs', 'test')),
     include_package_data=True,
-    package_data={'': ['pybb/templates', 'pybb/static']},
+    package_data={'': ['pybb/locale', 'pybb/static', 'pybb/templates']},
     install_requires=[
         'django-annoying',
         'unidecode',

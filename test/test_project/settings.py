@@ -36,7 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.sites',
-    'test.test_project.test_app',
+    'test.test_app',
     'pybb'
 ]
 
@@ -62,7 +62,7 @@ MIDDLEWARE_CLASSES = (
     'pybb.middleware.PybbMiddleware',
 )
 
-ROOT_URLCONF = 'test.test_project.test_project.urls'
+ROOT_URLCONF = 'test.test_project.urls'
 
 SITE_ID = 1
 

@@ -9,8 +9,8 @@ from pybb import util
 
 test_markup_engines_setting = {
     'bbcode': 'pybb.markup.bbcode.BBCodeParser',  # default parser
-    'bbcode_custom': 'test.test_project.test_project.markup_parsers.CustomBBCodeParser',  # overrided default parser
-    'liberator': 'test.test_project.test_project.markup_parsers.LiberatorParser',  # completely new parser
+    'bbcode_custom': 'test.test_project.markup_parsers.CustomBBCodeParser',  # overrided default parser
+    'liberator': 'test.test_project.markup_parsers.LiberatorParser',  # completely new parser
     'fake': 'pybb.markup.base.BaseParser',  # base parser
     'markdown': 'pybb.markup.markdown.MarkdownParser'
 }
