@@ -145,7 +145,7 @@ class TopicView(PermissionsMixin, RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         if settings.PYBB_NICE_URL and 'pk' in kwargs:
-            return redirect(self.topic, permanent=settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
+            return redirect(self.get_object(), permanent=settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
         response = super(TopicView, self).get(request, *args, **kwargs)
         self.bump_view_count()
         if self.request.user.is_authenticated():
