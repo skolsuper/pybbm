@@ -3,7 +3,7 @@ from django.core.urlresolvers import reverse
 from django.db import connection
 from rest_framework.test import APIClient
 
-from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker
+from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker, Forum
 from pybb.templatetags.pybb_tags import pybb_topic_unread
 
 
@@ -11,51 +11,52 @@ def test_read_tracking(user, topic, api_client):
     if not getattr(connection.features, 'supports_microsecond_precision', False):
         pytest.skip('Database doesn\'t support microsecond precision')
 
-    client.force_authenticate(user)
+    api_client.force_authenticate(user)
     # Topic status
-    tree = html.fromstring(client.get(topic.forum.get_absolute_url()).content)
-    self.assertTrue(tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % topic.get_absolute_url()))
+    response = api_client.get(topic.forum.get_absolute_url())
+    assert response.status_code == 200
+    assert response.data['unread']
     # Forum status
-    tree = html.fromstring(client.get(reverse('pybb:index')).content)
-    self.assertTrue(
-        tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % topic.forum.get_absolute_url()))
+    response = api_client.get(reverse('pybb:index'))
+    assert response.data['results'][0]['unread']
     # Visit it
-    client.get(topic.get_absolute_url())
+    api_client.get(topic.get_absolute_url())
     # Topic status - readed
-    tree = html.fromstring(client.get(topic.forum.get_absolute_url()).content)
+    response = api_client.get(topic.forum.get_absolute_url())
     # Visit others
+    assert not response.data['unread']
     for t in topic.forum.topics.all():
-        client.get(t.get_absolute_url())
-    self.assertFalse(tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % topic.get_absolute_url()))
+        api_client.get(t.get_absolute_url())
     # Forum status - readed
-    tree = html.fromstring(client.get(reverse('pybb:index')).content)
-    self.assertFalse(
-        tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % topic.forum.get_absolute_url()))
+    response = api_client.get(reverse('pybb:index'))
+    assert not response.data['results'][0]['unread']
     # Post message
-    add_post_url = reverse('pybb:add_post', kwargs={'topic_id': topic.id})
-    response = client.get(add_post_url)
-    values = self.get_form_values(response)
-    values['body'] = 'test tracking'
-    response = client.post(add_post_url, values, follow=True)
-    self.assertContains(response, 'test tracking')
+    add_post_url = reverse('pybb:add_post')
+    values = {
+        'topic': topic.id,
+        'body': 'test tracking'
+    }
+    response = api_client.post(add_post_url, values)
+    assert response.status_code == 200
+    assert response.data['body'] == 'test tracking'
     # Topic status - readed
-    tree = html.fromstring(client.get(topic.forum.get_absolute_url()).content)
-    self.assertFalse(tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % topic.get_absolute_url()))
+    response = api_client.get(topic.forum.get_absolute_url())
+    assert not response.data['results'][0]['unread']
     # Forum status - readed
-    tree = html.fromstring(client.get(reverse('pybb:index')).content)
-    self.assertFalse(
-        tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % topic.forum.get_absolute_url()))
+    response = api_client.get(reverse('pybb:index'))
+    assert not response.data['results'][0]['unread']
+
     post = Post(topic=topic, user=user, body='one')
     post.save()
-    client.get(reverse('pybb:mark_all_as_read'))
-    tree = html.fromstring(client.get(reverse('pybb:index')).content)
-    self.assertFalse(
-        tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % topic.forum.get_absolute_url()))
+    api_client.get(reverse('pybb:mark_all_as_read'))
+    response = api_client.get(reverse('pybb:index'))
+    assert not response.data['results'][0]['unread']
+
     # Empty forum - readed
-    f = Forum(name='empty', category=category)
+    f = Forum(name='empty', category=topic.forum.category)
     f.save()
-    tree = html.fromstring(client.get(reverse('pybb:index')).content)
-    self.assertFalse(tree.xpath('//a[@href="%s"]/parent::td[contains(@class,"unread")]' % f.get_absolute_url()))
+    response = api_client.get(reverse('pybb:index'))
+    assert not response.data['results'][0]['unread']
 
 
 def test_read_tracking_multi_user(user, topic, django_user_model):
