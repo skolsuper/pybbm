@@ -185,5 +185,6 @@ def moderate_topic(request, *args, **kwargs):
         raise PermissionDenied
     topic.on_moderation = False
     topic.save()
+    topic.posts.update(on_moderation=False)
     headers = {'Location': topic.get_absolute_url()}
     return Response(status=status.HTTP_200_OK, headers=headers)

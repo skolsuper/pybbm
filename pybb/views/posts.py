@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.shortcuts import get_current_site
-from django.shortcuts import get_object_or_404, get_list_or_404
+from django.shortcuts import get_object_or_404
 from django.utils.translation import ugettext as _
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ParseError
@@ -32,7 +32,7 @@ class ListCreatePostView(PermissionsMixin, ListCreateAPIView):
         qs = self.perms.filter_posts(self.request.user, self.queryset)
         topic_pk = self.request.query_params.get('topic', None)
         if topic_pk is not None:
-            qs = get_list_or_404(qs, topic__pk=topic_pk)
+            qs = qs.filter(topic__pk=topic_pk)
         return qs
 
     def create(self, request, *args, **kwargs):
@@ -54,8 +54,7 @@ class ListCreatePostView(PermissionsMixin, ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         if not settings.PYBB_DISABLE_NOTIFICATIONS:
-            current_site = get_current_site(request)
-            notify_topic_subscribers(serializer.instance, current_site)
+            notify_topic_subscribers(serializer.instance, current_site=get_current_site(request))
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 

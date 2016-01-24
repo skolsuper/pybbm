@@ -114,40 +114,52 @@ class PreModerationTestSuite(object):
         assert Topic.objects.filter(pk=topic_pk).exists()
         assert Post.objects.filter(topic__pk=topic_pk).count() == 1
         topic_url = reverse('pybb:topic', kwargs={'pk': topic_pk})
+        api_client.login(username='zeus', password='zeus')  # TODO: Figure out why force_authenticate fails here
         response = api_client.get(topic_url)
         assert response.status_code == 200
 
+        # Anon users can't view posts on moderation
         api_client.force_authenticate()
         response = api_client.get(add_topic_url, {'forum': forum.pk})  # Topic list URL is same as topic create
         assert response.status_code == 200
-        assert response.data['count'] == 1
-        serialized_topic = response.data['results'][0]
-        assert serialized_topic['name'] != 'new topic name'
+        assert response.data['count'] == 0
 
         response = api_client.get(topic_url)
         assert response.status_code == 404
 
-        api_client.force_authenticate(user)
+        # Can view own post while it's on moderation
+        api_client.login(username='zeus', password='zeus')  # TODO: Figure out why force_authenticate fails here
         response = api_client.get(add_topic_url, {'forum': forum.pk})  # Topic list URL is same as topic create
         assert response.status_code == 200
-        assert response.data['count'] == 2
+        assert response.data['count'] == 1
         serialized_topic = response.data['results'][0]
         assert serialized_topic['name'] == 'new topic name'
+
+        response = api_client.get(topic_url)
+        assert response.status_code == 200
+        assert response.data['name'] == 'new topic name'
 
         post_pk = Post.objects.get(topic__pk=topic_pk).pk
         post_url = reverse('pybb:post', kwargs={'pk': post_pk})
         response = api_client.get(post_url)
         assert response.status_code == 200
+        assert response.data['body'] == 'new topic test'
 
+        # superusers can view posts on moderation
         api_client.force_authenticate(admin_user)
         response = api_client.get(add_topic_url, {'forum': forum.pk})  # Topic list URL is same as topic create
         assert response.status_code == 200
-        assert response.data['count'] == 2
+        assert response.data['count'] == 1
         serialized_topic = response.data['results'][0]
         assert serialized_topic['name'] == 'new topic name'
 
         response = api_client.get(topic_url)
         assert response.status_code == 200
+        assert response.data['name'] == 'new topic name'
+
+        response = api_client.get(post_url)
+        assert response.status_code == 200
+        assert response.data['body'] == 'new topic test'
 
         moderate_url = reverse('pybb:moderate_topic', kwargs={'pk': topic_pk})
         response = api_client.get(moderate_url)
@@ -158,9 +170,14 @@ class PreModerationTestSuite(object):
         api_client.force_authenticate()
         response = api_client.get(add_topic_url, {'forum': forum.pk})  # Topic list URL is same as topic create
         assert response.status_code == 200
-        assert response.data['count'] == 2
+        assert response.data['count'] == 1
         serialized_topic = response.data['results'][0]
         assert serialized_topic['name'], 'new topic name'
 
         response = api_client.get(topic_url)
         assert response.status_code, 200
+        assert response.data['name'], 'new topic name'
+
+        response = api_client.get(post_url)
+        assert response.status_code == 200
+        assert response.data['body'] == 'new topic test'
