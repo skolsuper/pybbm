@@ -100,7 +100,7 @@ class ListCreateTopicsView(PermissionsMixin, ListCreateAPIView):
         except Forum.DoesNotExist:
             raise ParseError(_('Specified forum not found.'))
         if not self.perms.may_create_topic(request.user, forum):
-            raise PermissionDenied(_('You do not have permission to create topics in this forum.'))
+            self.permission_denied(request, _('You do not have permission to create topics in this forum.'))
         if 'poll_question' in request.data and not self.perms.may_create_poll(request.user):
             raise PermissionDenied(_('You do not have permission to create a poll.'))
 
