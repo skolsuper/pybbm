@@ -54,21 +54,21 @@ class Topic(models.Model):
     @property
     def updated(self):
         try:
-            return self.posts.order_by('updated').reverse()[0].updated
+            return self.posts.order_by('updated').last().updated
         except IndexError:
             return None
 
     @cached_property
     def head(self):
         try:
-            return self.posts.all().order_by('created', 'id')[0]
+            return self.posts.order_by('created', 'id').first()
         except IndexError:
             return None
 
     @cached_property
     def last_post(self):
         try:
-            return self.posts.order_by('-created', '-id').select_related('user')[0]
+            return self.posts.order_by('-created', '-id').last()
         except IndexError:
             return None
 

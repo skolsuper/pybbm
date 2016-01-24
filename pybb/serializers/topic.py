@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from pybb import compat
-from pybb.models import Topic, Post, PollAnswer
+from pybb.models import Topic, Post, PollAnswer, TopicReadTracker, ForumReadTracker
 from pybb.serializers.post import PostBodyField
 from pybb.settings import settings
 
@@ -47,7 +47,7 @@ class TopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Topic
         fields = ('id', 'forum', 'name', 'body', 'created', 'user', 'views', 'sticky', 'closed', 'on_moderation',
-                  'poll_type', 'poll_question', 'poll_answers', 'slug')
+                  'poll_type', 'poll_question', 'poll_answers', 'slug', 'unread')
         extra_kwargs = {
             'user': {'allow_null': True}
         }
@@ -55,9 +55,24 @@ class TopicSerializer(serializers.ModelSerializer):
     body = PostBodyField(required=True, write_only=True)
     slug = serializers.SlugField(max_length=255, required=False, default=DefaultSlugBuilder())
     poll_answers = PollAnswerSerializer(many=True, required=False)
-    
-    def __init__(self, *args, **kwargs):
-        super(TopicSerializer, self).__init__(*args, **kwargs)
+    unread = serializers.SerializerMethodField()
+
+    def get_unread(self, topic):
+        user = self.context['request'].user
+        if user.is_anonymous():
+            return False
+
+        last_topic_update = topic.updated or topic.created
+
+        unread = not ForumReadTracker.objects.filter(
+            forum=topic.forum,
+            user=user.id,
+            time_stamp__gte=last_topic_update).exists()
+        unread &= not TopicReadTracker.objects.filter(
+            topic=topic,
+            user=user.id,
+            time_stamp__gte=last_topic_update).exists()
+        return unread
 
     def validate(self, attrs):
         num_answers = len(attrs.get('poll_answers', []))
