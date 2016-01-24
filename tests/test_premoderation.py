@@ -1,10 +1,7 @@
 import pytest
-from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
 
 from pybb.models import Post, Topic
-
-User = get_user_model()
 
 
 @pytest.fixture()
