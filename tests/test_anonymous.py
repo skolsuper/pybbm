@@ -1,126 +1,98 @@
 # -*- coding: utf-8 -*-
-
 from __future__ import unicode_literals
 
-from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+import pytest
 from django.core.cache import cache
 from django.core.urlresolvers import reverse
-from django.test import override_settings
-from lxml import html
-from rest_framework.test import APITestCase
 
 from pybb import util
-from pybb.models import Category, Forum, Topic, Post
-from pybb.settings import settings
-User = get_user_model()
+from pybb.models import Topic, Post
 
 
-@override_settings(PYBB_ENABLE_ANONYMOUS_POST=True, PYBB_ANONYMOUS_USERNAME='Anonymous')
-class AnonymousTest(APITestCase):
+@pytest.fixture()
+def anonymous_post_on(settings):
+    settings.PYBB_ENABLE_ANONYMOUS_POST = True
+    settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = 10
 
-    @classmethod
-    def setUpClass(cls):
-        super(AnonymousTest, cls).setUpClass()
-        cls.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        cls.category = Category.objects.create(name='foo')
-        cls.forum = Forum.objects.create(name='xfoo', description='bar', category=cls.category)
-        cls.topic = Topic.objects.create(name='etopic', forum=cls.forum, user=cls.user)
-        cls.post = Post.objects.create(body='body post', topic=cls.topic, user=cls.user, user_ip='0.0.0.0')
-        add_post_permission = Permission.objects.get_by_natural_key('add_post', 'pybb', 'post')
-        cls.user.user_permissions.add(add_post_permission)
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.user.delete()
-        cls.category.delete()
-        super(AnonymousTest, cls).tearDownClass()
+@pytest.mark.usefixtures('anonymous_post_on')
+class AnonymousTestSuite(object):
 
-    def setUp(self):
+    def test_anonymous_posting(self, topic, api_client):
+        api_client.force_authenticate()
+        post_url = reverse('pybb:post_list')
+        values = {
+            'topic': topic.id,
+            'body': 'test anonymous'
+        }
+        response = api_client.post(post_url, values)
+        assert response.status_code == 201, 'Received status code {0}. Url was: {1}'.format(response.status_code, post_url)
+        assert Post.objects.filter(body='test anonymous').count() == 1
+        assert Post.objects.get(body='test anonymous').user is None
+
+    def test_anonymous_cache_topic_views(self, settings, topic, api_client):
         cache.clear()
+        assert util.build_cache_key('anonymous_topic_views', topic_id=topic.id) not in cache
+        url = topic.get_absolute_url()
+        api_client.get(url)
+        assert cache.get(util.build_cache_key('anonymous_topic_views', topic_id=topic.id)) == 1
 
-    def test_anonymous_posting(self):
-        self.client.force_authenticate()
-        post_url = reverse('pybb:post_list')
-        values = {
-            'topic': self.topic.id,
-            'body': 'test anonymous'
-        }
-        response = self.client.post(post_url, values, follow=True)
-        self.assertEqual(response.status_code, 201,
-                         'Received status code {0}. Url was: {1}'.format(response.status_code, post_url))
-        self.assertEqual(Post.objects.filter(body='test anonymous').count(), 1)
-        self.assertIsNone(Post.objects.get(body='test anonymous').user)
+        for _ in range(8):
+            api_client.get(url)
+        assert Topic.objects.get(id=topic.id).views == 0
+        assert cache.get(util.build_cache_key('anonymous_topic_views', topic_id=topic.id)) == 9
 
-    @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False)
-    def test_no_anonymous_posting(self):
-        self.client.force_authenticate()
-        post_url = reverse('pybb:post_list')
-        values = {
-            'topic': self.topic.id,
-            'body': 'test anonymous'
-        }
-        response = self.client.post(post_url, values, follow=True)
-        self.assertIn(response.status_code, (401, 403),
-                      'Received status code {0}. Url was: {1}'.format(response.status_code, post_url))
-        self.assertEqual(Post.objects.filter(body='test anonymous').count(), 0)
+        api_client.get(url)
+        assert Topic.objects.get(id=topic.id).views == 10
+        assert cache.get(util.build_cache_key('anonymous_topic_views', topic_id=topic.id)) == 0
 
-    def test_anonymous_cache_topic_views(self):
-        self.assertNotIn(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id), cache)
-        url = self.topic.get_absolute_url()
-        self.client.get(url)
-        self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)), 1)
-        for _ in range(settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER - 2):
-            self.client.get(url)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).views, 0)
-        self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)),
-                         settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER - 1)
-        self.client.get(url)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).views, settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER)
-        self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)), 0)
-
-        views = Topic.objects.get(id=self.topic.id).views
+        view_count = Topic.objects.get(id=topic.id).views
 
         settings.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER = None
-        self.client.get(url)
-        self.assertEqual(Topic.objects.get(id=self.topic.id).views, views + 1)
-        self.assertEqual(cache.get(util.build_cache_key('anonymous_topic_views', topic_id=self.topic.id)), 0)
+        api_client.get(url)
+        assert Topic.objects.get(id=topic.id).views == view_count + 1
+        assert cache.get(util.build_cache_key('anonymous_topic_views', topic_id=topic.id)) == 0
 
-    @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False)
-    def test_anon_topic_add(self):
-        with self.settings(PYBB_PERMISSION_HANDLER='test.test_project.permissions.RestrictEditingHandler'):
-            # access without user should be redirected
-            add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
-            r = self.get_with_user(add_topic_url)
-            self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % add_topic_url)
+    def test_no_anonymous_posting(self, settings, topic, api_client):
+        settings.PYBB_ENABLE_ANONYMOUS_POST = False
+        api_client.force_authenticate()
+        post_url = reverse('pybb:post_list')
+        values = {
+            'topic': topic.id,
+            'body': 'test anonymous'
+        }
+        response = api_client.post(post_url, values)
+        assert response.status_code == 401, 'Received status code {0}. Url was: {1}'.format(response.status_code, post_url)
+        assert Post.objects.filter(body='test anonymous').count() == 0
 
-            # access with (unauthorized) user should get 403 (forbidden)
-            r = self.get_with_user(add_topic_url, 'staff', 'staff')
-            self.assertEquals(r.status_code, 403)
+    def test_anon_topic_add_custom_settings(self, forum, user, api_client):
+        settings.PYBB_ENABLE_ANONYMOUS_POST = False
+        settings.PYBB_PERMISSION_HANDLER = 'test.test_project.permissions.RestrictEditingHandler'
+        # access without user should be redirected
+        add_topic_url = reverse('pybb:add_topic')
+        values = {
+            'forum': forum.id,
+            'name': 'test topic',
+            'body': 'test topic body',
+            'poll_type': Topic.POLL_TYPE_NONE
+        }
+        response = api_client.post(add_topic_url, values)
+        assert response.status_code == 401
 
-        # allowed user is allowed
-        r = self.get_with_user(add_topic_url, 'staff', 'staff')
-        self.assertEquals(r.status_code, 200)
+        # access with (unauthorized) user should get 403 (forbidden)
+        api_client.force_authenticate(user)
+        response = api_client.post(add_topic_url, values)
+        assert response.status_code == 403
 
-    def create_user(self):
-        self.user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-
-    def login_client(self, username='zeus', password='zeus'):
-        self.client.login(username=username, password=password)
-
-    def create_initial(self, post=True):
-        self.category = Category.objects.create(name='foo')
-        self.forum = Forum.objects.create(name='xfoo', description='bar', category=self.category)
-        self.topic = Topic.objects.create(name='etopic', forum=self.forum, user=self.user)
-        if post:
-            self.post = Post.objects.create(topic=self.topic, user=self.user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
-
-    def get_form_values(self, response, form="post-form"):
-        return dict(html.fromstring(response.content).xpath('//form[@class="%s"]' % form)[0].form_values())
-
-    def get_with_user(self, url, username=None, password=None):
-        if username:
-            self.client.login(username=username, password=password)
-        r = self.client.get(url)
-        self.client.logout()
-        return r
+    def test_anon_topic_add_default_settings(self, forum, user, api_client):
+        settings.PYBB_ENABLE_ANONYMOUS_POST = False
+        add_topic_url = reverse('pybb:add_topic')
+        values = {
+            'forum': forum.id,
+            'name': 'test topic',
+            'body': 'test topic body',
+            'poll_type': Topic.POLL_TYPE_NONE
+        }
+        api_client.force_authenticate(user)
+        response = api_client.post(add_topic_url, values)
+        assert response.status_code == 200
