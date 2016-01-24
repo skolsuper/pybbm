@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
 from pybb import util
-from pybb.models import Category, Forum, Topic, TopicReadTracker, ForumReadTracker
+from pybb.models import Category, Forum, Topic
 from pybb.pagination import PybbTopicPagination
 from pybb.permissions import PermissionsMixin
 from pybb.serializers import ForumSerializer, TopicSerializer, CategorySerializer
@@ -148,8 +148,6 @@ class TopicView(PermissionsMixin, RetrieveAPIView):
             return redirect(self.get_object(), permanent=settings.PYBB_NICE_URL_PERMANENT_REDIRECT)
         response = super(TopicView, self).get(request, *args, **kwargs)
         self.bump_view_count()
-        if self.request.user.is_authenticated():
-            self.mark_read()
         return response
 
     def get_queryset(self):
@@ -180,30 +178,3 @@ class TopicView(PermissionsMixin, RetrieveAPIView):
             if cache.incr(cache_key) % cache_buffer == 0:
                 topic_qs.update(views=F('views') + cache_buffer)
                 cache.set(cache_key, 0)
-
-    def mark_read(self):
-        try:
-            forum_mark = ForumReadTracker.objects.get(forum=self.topic.forum, user=self.request.user)
-        except ForumReadTracker.DoesNotExist:
-            forum_mark = None
-        if (forum_mark is None) or (forum_mark.time_stamp < self.topic.updated):
-            topic_mark, new = TopicReadTracker.objects.get_or_create_tracker(topic=self.topic, user=self.request.user)
-            if not new and topic_mark.time_stamp > self.topic.updated:
-                # Bail early if we already read this thread.
-                return
-
-            # Check, if there are any unread topics in forum
-            readed_trackers = TopicReadTracker.objects\
-                .annotate(last_update=Max('topic__posts__updated'))\
-                .filter(user=self.request.user, topic__forum=self.topic.forum, time_stamp__gte=F('last_update'))
-            unread = self.topic.forum.topics.exclude(topicreadtracker__in=readed_trackers)
-            if forum_mark is not None:
-                unread = unread.annotate(
-                    last_update=Max('posts__updated')).filter(last_update__gte=forum_mark.time_stamp)
-
-            if not unread.exists():
-                # Clear all topic marks for this forum, mark forum as read
-                TopicReadTracker.objects.filter(user=self.request.user, topic__forum=self.topic.forum).delete()
-                forum_mark, new = ForumReadTracker.objects.get_or_create_tracker(
-                    forum=self.topic.forum, user=self.request.user)
-                forum_mark.save()

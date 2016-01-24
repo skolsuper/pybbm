@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from pybb.models import Topic, Post
 from pybb.pagination import PybbPostPagination
 from pybb.permissions import PermissionsMixin
+from pybb.read_tracking import mark_read
 from pybb.serializers import PostSerializer
 from pybb.settings import settings
 from pybb.subscription import notify_topic_subscribers
@@ -28,12 +29,27 @@ class ListCreatePostView(PermissionsMixin, ListCreateAPIView):
     serializer_class = PostSerializer
     pagination_class = PybbPostPagination
 
-    def get_queryset(self):
-        qs = self.perms.filter_posts(self.request.user, self.queryset)
+    def get_topic(self):
         topic_pk = self.request.query_params.get('topic', None)
         if topic_pk is not None:
-            qs = qs.filter(topic__pk=topic_pk)
+            if not hasattr(self, '_topic'):
+                self._topic = get_object_or_404(self.perms.filter_topics(self.request.user), pk=topic_pk)
+            return self._topic
+
+    def get_queryset(self):
+        qs = self.perms.filter_posts(self.request.user, self.queryset)
+        topic = self.get_topic()
+        if topic is not None:
+            qs = qs.filter(topic=topic)
         return qs
+
+    def get_paginated_response(self, data):
+        response = super(ListCreatePostView, self).get_paginated_response(data)
+        topic = self.get_topic()
+        if topic is not None and self.request.user.is_authenticated():
+            last_read_time = response.data['results'][0]['updated']
+            mark_read(self.request.user, topic, last_read_time)
+        return response
 
     def create(self, request, *args, **kwargs):
         try:

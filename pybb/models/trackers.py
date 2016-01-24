@@ -2,32 +2,8 @@
 from __future__ import unicode_literals
 
 from django.conf import settings
-from django.db import models, transaction, DatabaseError
+from django.db import models
 from django.utils.translation import ugettext_lazy as _
-
-from pybb.compat import get_atomic_func
-
-
-class TopicReadTrackerManager(models.Manager):
-    def get_or_create_tracker(self, user, topic):
-        """
-        Correctly create tracker in mysql db on default REPEATABLE READ transaction mode
-
-        It's known problem when standrard get_or_create method return can raise exception
-        with correct data in mysql database.
-        See http://stackoverflow.com/questions/2235318/how-do-i-deal-with-this-race-condition-in-django/2235624
-        """
-        is_new = True
-        sid = transaction.savepoint(using=self.db)
-        try:
-            with get_atomic_func()():
-                obj = TopicReadTracker.objects.create(user=user, topic=topic)
-            transaction.savepoint_commit(sid)
-        except DatabaseError:
-            transaction.savepoint_rollback(sid)
-            obj = TopicReadTracker.objects.get(user=user, topic=topic)
-            is_new = False
-        return obj, is_new
 
 
 class TopicReadTracker(models.Model):
@@ -39,35 +15,10 @@ class TopicReadTracker(models.Model):
         verbose_name = _('Topic read tracker')
         verbose_name_plural = _('Topic read trackers')
         unique_together = ('user', 'topic')
-        app_label = 'pybb'
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, blank=False, null=False)
-    topic = models.ForeignKey('Topic', blank=True, null=True)
-    time_stamp = models.DateTimeField(auto_now=True)
-
-    objects = TopicReadTrackerManager()
-
-
-class ForumReadTrackerManager(models.Manager):
-    def get_or_create_tracker(self, user, forum):
-        """
-        Correctly create tracker in mysql db on default REPEATABLE READ transaction mode
-
-        It's known problem when standrard get_or_create method return can raise exception
-        with correct data in mysql database.
-        See http://stackoverflow.com/questions/2235318/how-do-i-deal-with-this-race-condition-in-django/2235624
-        """
-        is_new = True
-        sid = transaction.savepoint(using=self.db)
-        try:
-            with get_atomic_func()():
-                obj = ForumReadTracker.objects.create(user=user, forum=forum)
-            transaction.savepoint_commit(sid)
-        except DatabaseError:
-            transaction.savepoint_rollback(sid)
-            is_new = False
-            obj = ForumReadTracker.objects.get(user=user, forum=forum)
-        return obj, is_new
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
+    topic = models.ForeignKey('Topic')
+    time_stamp = models.DateTimeField()
 
 
 class ForumReadTracker(models.Model):
@@ -79,10 +30,7 @@ class ForumReadTracker(models.Model):
         verbose_name = _('Forum read tracker')
         verbose_name_plural = _('Forum read trackers')
         unique_together = ('user', 'forum')
-        app_label = 'pybb'
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, blank=False, null=False)
-    forum = models.ForeignKey('Forum', blank=True, null=True)
-    time_stamp = models.DateTimeField(auto_now=True)
-
-    objects = ForumReadTrackerManager()
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
+    forum = models.ForeignKey('Forum')
+    time_stamp = models.DateTimeField()
