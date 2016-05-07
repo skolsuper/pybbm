@@ -20,7 +20,7 @@ def test_attachments(settings, django_user_model, api_client):
     add_post_url = reverse('pybb:post_list')
     api_client.force_authenticate(user)
     with NamedTemporaryFile() as fp:
-        fp.write('hello')
+        fp.write(b'hello')
         fp.seek(0)
         values = {'topic': topic.id, 'body': 'test attachment', 'attachment': fp}
         response = api_client.post(add_post_url, values, format='multipart')
