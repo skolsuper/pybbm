@@ -487,18 +487,3 @@ class FeaturesTest(APITestCase):
         self.assertFalse(User.objects.filter(pk=user_pk).exists())
         self.assertFalse(Profile.objects.filter(pk=profile_pk).exists())
         self.assertFalse(Post.objects.filter(pk=post_pk).exists())
-
-    def test_redirect_post_edit(self):
-        with self.settings(PYBB_PERMISSION_HANDLER='test.test_project.permissions.RestrictEditingHandler'):
-            # access without user should be redirected
-            edit_post_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})
-            r = self.get_with_user(edit_post_url)
-            self.assertRedirects(r, settings.LOGIN_URL + '?next=%s' % edit_post_url)
-
-            # access with (unauthorized) user should get 403 (forbidden)
-            r = self.get_with_user(edit_post_url, 'staff', 'staff')
-            self.assertEquals(r.status_code, 403)
-
-        # allowed user is allowed
-        r = self.get_with_user(edit_post_url, 'staff', 'staff')
-        self.assertEquals(r.status_code, 200)
