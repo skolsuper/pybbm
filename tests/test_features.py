@@ -437,42 +437,33 @@ class FeaturesTest(APITestCase):
         response = self.client.get(reverse('pybb:user_topics', kwargs={'username': user.username}))
         self.assertEqual(response.context['object_list'].count(), 0)
 
-    def test_post_count(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic(name='etopic', forum=forum, user=user)
-        topic.save()
-        post = Post.objects.create(topic=topic, user=user, body='test', user_ip='0.0.0.0')
-        self.assertEqual(util.get_pybb_profile(user).user.posts.count(), 1)
-        post.body = 'test2'
-        post.save()
-        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(user).pk).user.posts.count(), 1)
-        post.delete()
-        self.assertEqual(Profile.objects.get(pk=util.get_pybb_profile(user).pk).user.posts.count(), 0)
 
-    def test_latest_topics_tag(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        for i in range(10):
-            Topic.objects.create(name='topic%s' % i, user=user, forum=forum)
-        latest_topics = pybb_get_latest_topics(context=None, user=user)
-        self.assertEqual(len(latest_topics), 5)
-        self.assertEqual(latest_topics[0].name, 'topic9')
-        self.assertEqual(latest_topics[4].name, 'topic5')
+def test_post_count(user, topic):
+    post = Post.objects.create(topic=topic, user=user, body='test', user_ip='0.0.0.0')
+    assert util.get_pybb_profile(user).user.posts.count() == 1
+    post.body = 'test2'
+    post.save()
+    assert Profile.objects.get(pk=util.get_pybb_profile(user).pk).user.posts.count() == 1
+    post.delete()
+    assert Profile.objects.get(pk=util.get_pybb_profile(user).pk).user.posts.count() == 0
 
-    def test_latest_posts_tag(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic', user=user, forum=forum)
-        for i in range(10):
-            Post.objects.create(body='post%s' % i, user=user, topic=topic, user_ip='0.0.0.0')
-        latest_topics = pybb_get_latest_posts(context=None, user=user)
-        self.assertEqual(len(latest_topics), 5)
-        self.assertEqual(latest_topics[0].body, 'post9')
-        self.assertEqual(latest_topics[4].body, 'post5')
+
+def test_latest_topics_tag(forum, user):
+    for i in range(10):
+        Topic.objects.create(name='topic%s' % i, user=user, forum=forum)
+    latest_topics = pybb_get_latest_topics(context=None, user=user)
+    assert len(latest_topics) == 5
+    assert latest_topics[0].name == 'topic9'
+    assert latest_topics[4].name == 'topic5'
+
+
+def test_latest_posts_tag(topic, user):
+    for i in range(10):
+        Post.objects.create(body='post%s' % i, user=user, topic=topic, user_ip='0.0.0.0')
+    latest_topics = pybb_get_latest_posts(context=None, user=user)
+    assert len(latest_topics) == 5
+    assert latest_topics[0].body == 'post9'
+    assert latest_topics[4].body == 'post5'
 
 
 def test_user_delete_cascade(topic):
