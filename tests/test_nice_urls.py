@@ -89,8 +89,8 @@ class NiceUrlsTest(APITestCase):
         response = self.client.post(add_topic_url, data=values, follow=True)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
-            response.content,
-            '{"non_field_errors":["After 10 attempts, there is not any unique slug value for \\"dolly\\""]}'
+            response.data,
+            {"non_field_errors": ["After 10 attempts, there is not any unique slug value for \"dolly\""]}
         )
 
     def test_long_duplicate_slug(self):
