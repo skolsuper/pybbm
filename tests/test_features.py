@@ -474,16 +474,17 @@ class FeaturesTest(APITestCase):
         self.assertEqual(latest_topics[0].body, 'post9')
         self.assertEqual(latest_topics[4].body, 'post5')
 
-    def test_user_delete_cascade(self):
-        user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
-        profile = getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME, None)
-        self.assertIsNotNone(profile)
-        post = Post.objects.create(topic=self.topic, user=user, body='I \'ll be back', user_ip='0.0.0.0')
-        user_pk = user.pk
-        profile_pk = profile.pk
-        post_pk = post.pk
 
-        user.delete()
-        self.assertFalse(User.objects.filter(pk=user_pk).exists())
-        self.assertFalse(Profile.objects.filter(pk=profile_pk).exists())
-        self.assertFalse(Post.objects.filter(pk=post_pk).exists())
+def test_user_delete_cascade(topic):
+    user = User.objects.create_user('cronos', 'cronos@localhost', 'cronos')
+    profile = getattr(user, pybb_settings.PYBB_PROFILE_RELATED_NAME, None)
+    assert profile is not None
+    post = Post.objects.create(topic=topic, user=user, body='I \'ll be back', user_ip='0.0.0.0')
+    user_pk = user.pk
+    profile_pk = profile.pk
+    post_pk = post.pk
+
+    user.delete()
+    assert not User.objects.filter(pk=user_pk).exists()
+    assert not Profile.objects.filter(pk=profile_pk).exists()
+    assert not Post.objects.filter(pk=post_pk).exists()
