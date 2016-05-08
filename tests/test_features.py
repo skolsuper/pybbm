@@ -200,28 +200,25 @@ class FeaturesTest(APITestCase):
         id_list = py_(response.data['results']).pluck('id').value()
         self.assertListEqual(id_list, [topic_2.id, topic_3.id])
 
-    def test_inactive(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic_1', forum=forum, user=user)
-        self.client.force_authenticate(user)
-        url = reverse('pybb:post_list')
-        data = {
-            'body': 'test ban',
-            'topic': topic.id
-        }
-        response = self.client.post(url, data, follow=True)
-        self.assertEqual(response.status_code, 201)
-        self.assertTrue(Post.objects.filter(body='test ban').exists())
-        inactive_user = User.objects.create_user('inactive_user')
-        inactive_user.is_active = False
-        inactive_user.save()
-        data['body'] = 'test ban 2'
-        self.client.force_authenticate(inactive_user)
-        response = self.client.post(url, data, follow=True)
-        self.assertEqual(response.status_code, 403)
-        self.assertFalse(Post.objects.filter(body='test ban 2').exists())
+
+def test_inactive(user, topic, api_client):
+    api_client.force_authenticate(user)
+    url = reverse('pybb:post_list')
+    data = {
+        'body': 'test ban',
+        'topic': topic.id
+    }
+    response = api_client.post(url, data)
+    assert response.status_code == 201
+    assert Post.objects.filter(body='test ban').exists()
+    inactive_user = User.objects.create_user('inactive_user')
+    inactive_user.is_active = False
+    inactive_user.save()
+    data['body'] = 'test ban 2'
+    api_client.force_authenticate(inactive_user)
+    response = api_client.post(url, data)
+    assert response.status_code == 403
+    assert not Post.objects.filter(body='test ban 2').exists()
 
 
 def test_user_blocking(user, topic, api_client):
