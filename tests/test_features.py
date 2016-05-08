@@ -109,19 +109,15 @@ class FeaturesTest(APITestCase):
         Topic.objects.get(id=topic.id)
         Forum.objects.get(id=forum.id)
 
-    def test_topic_deletion(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
-        topic = Topic(name='xtopic', forum=forum, user=user)
-        topic.save()
-        Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
-        post = Post.objects.create(topic=topic, user=user, body='two', user_ip='0.0.0.0')
-        post.delete()
-        Topic.objects.get(id=topic.id)
-        Forum.objects.get(id=forum.id)
-        topic.delete()
-        Forum.objects.get(id=forum.id)
+
+def test_topic_deletion(user, forum, topic):
+    Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
+    post = Post.objects.create(topic=topic, user=user, body='two', user_ip='0.0.0.0')
+    post.delete()
+    Topic.objects.get(id=topic.id)
+    Forum.objects.get(id=forum.id)
+    topic.delete()
+    Forum.objects.get(id=forum.id)
 
 
 def test_forum_updated(user, forum, topic):
