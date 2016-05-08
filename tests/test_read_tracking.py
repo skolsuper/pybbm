@@ -42,8 +42,8 @@ def test_read_tracking(user, topic, api_client, admin_user):
     for t in topic.forum.topics.all():
         api_client.get(post_list_url, {'topic': t.id})
     # Forum status - read
-    response = api_client.get(reverse('pybb:forum_list'))
-    assert not response.data['results'][0]['unread']
+    response = api_client.get(topic.forum.get_absolute_url())
+    assert not response.data['unread']
 
     # Post message
     add_post_url = post_list_url
@@ -55,11 +55,11 @@ def test_read_tracking(user, topic, api_client, admin_user):
     assert response.status_code == 201
     assert response.data['body'] == 'test tracking'
     # Topic status - readed
-    response = api_client.get(topic.forum.get_absolute_url())
-    assert not response.data['results'][0]['unread']
+    response = api_client.get(topic.get_absolute_url())
+    assert not response.data['unread']
     # Forum status - readed
-    response = api_client.get(reverse('pybb:index'))
-    assert not response.data['results'][0]['unread']
+    response = api_client.get(topic.forum.get_absolute_url())
+    assert not response.data['unread']
 
     post = Post(topic=topic, user=user, body='one')
     post.save()

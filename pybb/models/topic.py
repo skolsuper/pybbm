@@ -54,7 +54,7 @@ class Topic(models.Model):
     @property
     def updated(self):
         try:
-            return self.posts.order_by('updated').last().updated
+            return self.posts.order_by('updated').last().created
         except AttributeError:
             return None
 

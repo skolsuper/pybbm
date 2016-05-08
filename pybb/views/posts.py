@@ -49,7 +49,7 @@ class ListCreatePostView(PermissionsMixin, ListCreateAPIView):
         response = super(ListCreatePostView, self).get_paginated_response(data)
         topic = self.get_topic()
         if topic is not None and self.request.user.is_authenticated():
-            last_read_time = data.serializer.instance[0].updated
+            last_read_time = data.serializer.instance[0].created
             mark_read(self.request.user, topic, last_read_time)
         return response
 

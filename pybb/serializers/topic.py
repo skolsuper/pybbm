@@ -30,10 +30,10 @@ class PollAnswerSerializer(serializers.Serializer):
     @property
     def data(self):
         return super(PollAnswerSerializer, self).data()
-    
+
     def validate(self, attrs):
         return super(PollAnswerSerializer, self).validate(attrs)
-    
+
     def to_internal_value(self, data):
         return super(PollAnswerSerializer, self).to_internal_value(data)
 
