@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import RetrieveAPIView, ListAPIView, UpdateAPIView
+from rest_framework.permissions import IsAuthenticated
 
 from pybb import util
 from pybb.models import Topic, Post
@@ -59,6 +60,7 @@ class UserTopics(PermissionsMixin, ListAPIView):
 class ProfileEditView(UpdateAPIView):
 
     serializer_class = ProfileSerializer
+    permission_classes = (IsAuthenticated,)
 
     def get_object(self):
         return util.get_pybb_profile(self.request.user)

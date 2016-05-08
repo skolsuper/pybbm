@@ -59,21 +59,21 @@ class FeaturesTest(APITestCase):
         user = User.objects.create_user(username='user2', password='user2', email='user2@example.com')
         self.assertEqual(util.get_pybb_profile(user).language, settings.LANGUAGE_CODE)
 
-    def test_profile_edit(self):
-        # Self profile edit
-        self.login_client()
-        response = self.client.get(reverse('pybb:edit_profile'))
-        self.assertEqual(response.status_code, 200)
-        values = self.get_form_values(response, 'profile-edit')
-        values['signature'] = 'test signature'
-        response = self.client.post(reverse('pybb:edit_profile'), data=values, follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.client.get(self.post.get_absolute_url(), follow=True)
-        self.assertContains(response, 'test signature')
-        # Test empty signature
-        values['signature'] = ''
-        response = self.client.post(reverse('pybb:edit_profile'), data=values, follow=True)
-        self.assertEqual(len(response.context['form'].errors), 0)
+
+def test_profile_edit(user, api_client):
+    edit_profile_url = reverse('pybb:edit_profile')
+
+    values = {'signature': 'test signature'}
+    response = api_client.patch(edit_profile_url, data=values)
+    assert response.status_code in (401, 403)
+
+    api_client.force_authenticate(user)
+    response = api_client.patch(edit_profile_url, data=values)
+    assert response.status_code == 200
+
+    values['signature'] = ''
+    response = api_client.patch(edit_profile_url, data=values)
+    assert response.status_code == 200
 
 
 def test_pagination(forum, user, api_client):
