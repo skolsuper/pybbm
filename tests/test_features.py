@@ -284,24 +284,23 @@ class FeaturesTest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, post.body)
 
-    def test_edit_post(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic', forum=forum, user=user)
-        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
-        self.client.force_authenticate(user)
-        edit_post_url = reverse('pybb:edit_post', kwargs={'pk': post.id})
-        values = {
-            'body': 'test edit',
-            'topic': topic.id
-        }
-        response = self.client.put(edit_post_url, data=values, follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(Post.objects.get(pk=post.id).body, 'test edit')
-        response = self.client.get(post.get_absolute_url(), follow=True)
-        self.assertEqual(response.data['body'], 'test edit')
-        self.assertIsNotNone(Post.objects.get(id=post.id).updated)
+
+def test_edit_post(user, topic, api_client):
+    if not getattr(connection.features, 'supports_microsecond_precision', False):
+        pytest.skip('Database time precision not high enough')
+    post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
+    original_updated = post.updated
+
+    api_client.force_authenticate(user)
+    edit_post_url = reverse('pybb:edit_post', kwargs={'pk': post.id})
+    values = {
+        'body': 'test edit',
+    }
+    response = api_client.patch(edit_post_url, data=values)
+    assert response.status_code == 200
+    post = Post.objects.get(pk=post.id)
+    assert post.body == 'test edit'
+    assert post.updated != original_updated
 
 
 def test_stick(forum, api_client):
