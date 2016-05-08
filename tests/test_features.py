@@ -264,14 +264,6 @@ class FeaturesTest(APITestCase):
         user = User.objects.get(username=user.username)
         self.assertTrue(user.is_active)
 
-    def test_headline(self):
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        forum.headline = 'test <b>headline</b>'
-        forum.save()
-        client = Client()
-        self.assertContains(client.get(forum.get_absolute_url()), 'test <b>headline</b>')
-
 
 def test_edit_post(user, topic, api_client):
     if not getattr(connection.features, 'supports_microsecond_precision', False):
