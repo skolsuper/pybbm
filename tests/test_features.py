@@ -314,26 +314,25 @@ class FeaturesTest(APITestCase):
         self.assertEqual(
             self.client.get(reverse('pybb:unstick_topic', kwargs={'pk': topic.id}), follow=True).status_code, 200)
 
-    def test_delete_view(self):
-        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
-        topic_head = Post.objects.create(topic=topic, user=superuser, body='test topic head', user_ip='0.0.0.0')
-        post = Post.objects.create(topic=topic, user=superuser, body='test to delete', user_ip='0.0.0.0')
-        self.client.force_authenticate(superuser)
-        response = self.client.delete(reverse('pybb:delete_post', args=[post.id]), follow=True)
-        self.assertEqual(response.status_code, 204)
-        # Check that topic and forum exists ;)
-        self.assertEqual(Topic.objects.filter(id=topic.id).count(), 1)
-        self.assertEqual(Forum.objects.filter(id=forum.id).count(), 1)
 
-        # Delete topic
-        response = self.client.delete(reverse('pybb:delete_post', args=[topic_head.id]), follow=True)
-        self.assertEqual(response.status_code, 204)
-        self.assertEqual(Post.objects.filter(id=post.id).count(), 0)
-        self.assertEqual(Topic.objects.filter(id=topic.id).count(), 0)
-        self.assertEqual(Forum.objects.filter(id=forum.id).count(), 1)
+def test_delete_view(forum, api_client):
+    superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
+    topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
+    topic_head = Post.objects.create(topic=topic, user=superuser, body='test topic head', user_ip='0.0.0.0')
+    post = Post.objects.create(topic=topic, user=superuser, body='test to delete', user_ip='0.0.0.0')
+    api_client.force_authenticate(superuser)
+    response = api_client.delete(reverse('pybb:delete_post', args=[post.id]), follow=True)
+    assert response.status_code == 204
+    # Check that topic and forum exists ;)
+    assert Topic.objects.filter(id=topic.id).count() == 1
+    assert Forum.objects.filter(id=forum.id).count() == 1
+
+    # Delete topic
+    response = api_client.delete(reverse('pybb:delete_post', args=[topic_head.id]), follow=True)
+    assert response.status_code == 204
+    assert Post.objects.filter(id=post.id).count() == 0
+    assert Topic.objects.filter(id=topic.id).count() == 0
+    assert Forum.objects.filter(id=forum.id).count() == 1
 
 
 def test_open_close(forum, api_client):
