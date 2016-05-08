@@ -26,7 +26,7 @@ class Post(models.Model):
     user = models.ForeignKey(
             settings.AUTH_USER_MODEL, null=True, related_name='posts', verbose_name=_('User'))
     created = models.DateTimeField(_('Created'), blank=True, db_index=True, auto_now_add=True)
-    updated = models.DateTimeField(_('Updated'), blank=True, db_index=True, auto_now=True)
+    updated = models.DateTimeField(_('Updated'), blank=True, db_index=True, default=tznow)
     user_ip = models.GenericIPAddressField(_('User IP'))
     on_moderation = models.BooleanField(_('On moderation'), default=False)
     attachment = models.FileField(_('Attachment'), blank=True, upload_to=FilePathGenerator(to=pybb_settings.PYBB_ATTACHMENT_UPLOAD_TO))
