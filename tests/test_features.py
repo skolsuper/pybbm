@@ -411,31 +411,27 @@ class FeaturesTest(APITestCase):
         self.assertEqual(forum_1.topics.count(), 0)
         self.assertEqual(forum_1.posts.count(), 0)
 
-    def test_user_views(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        response = self.client.get(reverse('pybb:user', kwargs={'username': user.username}))
-        self.assertEqual(response.status_code, 200)
 
-        response = self.client.get(reverse('pybb:user_posts', kwargs={'username': user.username}))
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['object_list'].count(), 1)
+def test_user_views(forum, user, api_client):
+    topic = Topic.objects.create(name='new topic', forum=forum, user=user)
+    Post.objects.create(user=user, topic=topic, body='blah', user_ip='0.0.0.0')
 
-        response = self.client.get(reverse('pybb:user_topics', kwargs={'username': user.username}))
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['object_list'].count(), 1)
-        forum_1 = Forum.objects.create(name='new forum', category=category)
-        topic_1 = Topic.objects.create(name='new topic', forum=forum_1, user=user)
-        topic_1.forum.hidden = True
-        topic_1.forum.save()
+    response = api_client.get(reverse('pybb:user_posts', kwargs={'username': user.username}))
+    assert response.status_code == 200
+    assert response.data['count'] == 1
 
-        self.client.logout()
+    response = api_client.get(reverse('pybb:user_topics', kwargs={'username': user.username}))
+    assert response.status_code == 200
+    assert response.data['count'] == 1
 
-        response = self.client.get(reverse('pybb:user_posts', kwargs={'username': user.username}))
-        self.assertEqual(response.context['object_list'].count(), 0)
+    forum.hidden = True
+    forum.save()
 
-        response = self.client.get(reverse('pybb:user_topics', kwargs={'username': user.username}))
-        self.assertEqual(response.context['object_list'].count(), 0)
+    response = api_client.get(reverse('pybb:user_posts', kwargs={'username': user.username}))
+    assert response.data['count'] == 0
+
+    response = api_client.get(reverse('pybb:user_topics', kwargs={'username': user.username}))
+    assert response.data['count'] == 0
 
 
 def test_post_count(user, topic):
