@@ -3,10 +3,13 @@
 from __future__ import unicode_literals
 
 import datetime
+
+import pytest
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.urlresolvers import reverse
+from django.db import connection
 from django.test import skipUnlessDBFeature, Client, override_settings
 from pydash import py_
 from rest_framework.test import APITestCase
@@ -365,22 +368,20 @@ class FeaturesTest(APITestCase):
         response = self.client.post(add_post_url, values, follow=True)
         self.assertEqual(response.status_code, 201)
 
-    @skipUnlessDBFeature('supports_microsecond_precision')
-    def test_topic_updated(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic(name='new topic', forum=forum, user=user)
-        topic.save()
-        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
-        client = Client()
-        response = client.get(forum.get_absolute_url())
-        self.assertEqual(response.context['topic_list'][0], topic)
-        post = Post(topic=topic, user=user, body='bbcode [b]test[/b]')
-        post.save()
-        client = Client()
-        response = client.get(forum.get_absolute_url())
-        self.assertEqual(response.context['topic_list'][0], topic)
+
+def test_topic_updated(user, forum, api_client):
+    if not getattr(connection.features, 'supports_microsecond_precision', False):
+        pytest.skip('Database time precision not high enough')
+    topic_1 = Topic.objects.create(name='topic one', forum=forum, user=user)
+    topic_2 = Topic.objects.create(name='topic two', forum=forum, user=user)
+    Post.objects.create(topic=topic_1, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
+    topic_list_url = reverse('pybb:topic_list')
+    response = api_client.get(topic_list_url, data={'forum': forum.id})
+    assert response.data['results'][0]['name'] == 'topic one'
+
+    Post.objects.create(topic=topic_2, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
+    response = api_client.get(topic_list_url, data={'forum': forum.id})
+    assert response.data['results'][0]['name'] == 'topic two'
 
 
 def test_topic_deleted(user, forum):
