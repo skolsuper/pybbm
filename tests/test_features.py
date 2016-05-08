@@ -123,14 +123,12 @@ class FeaturesTest(APITestCase):
         topic.delete()
         Forum.objects.get(id=forum.id)
 
-    def test_forum_updated(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
-        topic = Topic(name='xtopic', forum=forum, user=user)
-        topic.save()
-        post = Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
-        self.assertAlmostEqual(forum.updated, post.created, delta=datetime.timedelta(milliseconds=50))
+
+def test_forum_updated(user, forum, topic):
+    if not getattr(connection.features, 'supports_microsecond_precision', False):
+        pytest.skip('Database time precision not high enough')
+    post = Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
+    assert abs(forum.updated - post.created) < datetime.timedelta(milliseconds=50)
 
 
 def test_latest_topics(user, forum, api_client):
