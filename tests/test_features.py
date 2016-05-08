@@ -303,16 +303,20 @@ class FeaturesTest(APITestCase):
         self.assertEqual(response.data['body'], 'test edit')
         self.assertIsNotNone(Post.objects.get(id=post.id).updated)
 
-    def test_stick(self):
-        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
-        self.client.force_authenticate(superuser)
-        self.assertEqual(
-            self.client.get(reverse('pybb:stick_topic', kwargs={'pk': topic.id}), follow=True).status_code, 200)
-        self.assertEqual(
-            self.client.get(reverse('pybb:unstick_topic', kwargs={'pk': topic.id}), follow=True).status_code, 200)
+
+def test_stick(forum, api_client):
+    superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
+    topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
+    api_client.force_authenticate(superuser)
+    response = api_client.get(reverse('pybb:stick_topic', kwargs={'pk': topic.id}), follow=True)
+    assert response.status_code == 405
+    response = api_client.post(reverse('pybb:stick_topic', kwargs={'pk': topic.id}), follow=True)
+    assert response.status_code == 200
+
+    response = api_client.get(reverse('pybb:unstick_topic', kwargs={'pk': topic.id}), follow=True)
+    assert response.status_code == 405
+    response = api_client.post(reverse('pybb:unstick_topic', kwargs={'pk': topic.id}), follow=True)
+    assert response.status_code == 200
 
 
 def test_delete_view(forum, api_client):
