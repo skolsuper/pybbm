@@ -45,12 +45,17 @@ def test_read_tracking(user, topic, api_client, admin_user):
     response = api_client.get(topic.forum.get_absolute_url())
     assert not response.data['unread']
 
-    # Post message
-    add_post_url = post_list_url
+
+def test_adding_post_marks_as_read(user, topic, api_client):
+    if not getattr(connection.features, 'supports_microsecond_precision', False):
+        pytest.skip('Database time precision not high enough')
+
+    add_post_url = reverse('pybb:post_list')
     values = {
         'topic': topic.id,
         'body': 'test tracking'
     }
+    api_client.force_authenticate(user)
     response = api_client.post(add_post_url, values)
     assert response.status_code == 201
     assert response.data['body'] == 'test tracking'
@@ -60,6 +65,11 @@ def test_read_tracking(user, topic, api_client, admin_user):
     # Forum status - readed
     response = api_client.get(topic.forum.get_absolute_url())
     assert not response.data['unread']
+
+
+def test_mark_all_as_read(user, topic, api_client):
+    if not getattr(connection.features, 'supports_microsecond_precision', False):
+        pytest.skip('Database time precision not high enough')
 
     post = Post(topic=topic, user=user, body='one')
     post.save()
