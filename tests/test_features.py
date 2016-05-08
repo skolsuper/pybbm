@@ -223,46 +223,44 @@ class FeaturesTest(APITestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse(Post.objects.filter(body='test ban 2').exists())
 
-    def test_user_blocking(self):
-        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        user = User.objects.create_user('test', 'test@localhost', 'test')
-        topic = Topic.objects.create(name='topic', forum=forum, user=user)
-        p1 = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
-        p2 = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
-        self.client.force_authenticate(superuser)
-        response = self.client.get(reverse('pybb:block_user', args=[user.username]), follow=True)
-        self.assertEqual(response.status_code, 405)
-        response = self.client.post(reverse('pybb:block_user', args=[user.username]), follow=True)
-        self.assertEqual(response.status_code, 200)
-        user = User.objects.get(username=user.username)
-        self.assertFalse(user.is_active)
-        self.assertEqual(Topic.objects.count(), 1)
-        self.assertEqual(Post.objects.filter(user=user).count(), 2)
 
-        user.is_active = True
-        user.save()
-        response = self.client.post(reverse('pybb:block_user', args=[user.username]),
-                                    data={'block_and_delete_messages': True}, follow=True)
-        self.assertEqual(response.status_code, 200)
-        user = User.objects.get(username=user.username)
-        self.assertFalse(user.is_active)
-        self.assertEqual(Topic.objects.count(), 0)
-        self.assertEqual(Post.objects.filter(user=user).count(), 0)
+def test_user_blocking(user, topic, api_client):
+    superuser = User.objects.create_superuser('test', 'test@localhost', 'test')
+    Post.objects.create(topic=topic, user=user, body='test 1', user_ip='0.0.0.0')
+    Post.objects.create(topic=topic, user=user, body='test 2', user_ip='0.0.0.0')
+    api_client.force_authenticate(superuser)
+    response = api_client.get(reverse('pybb:block_user', args=[user.username]))
+    assert response.status_code == 405
+    response = api_client.post(reverse('pybb:block_user', args=[user.username]))
+    assert response.status_code == 200
+    user = User.objects.get(username=user.username)
+    assert not user.is_active
+    assert Topic.objects.count() == 1
+    assert Post.objects.filter(user=user).count() == 2
 
-    def test_user_unblocking(self):
-        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
-        user = User.objects.create_user('test', 'test@localhost', 'test')
-        user.is_active = False
-        user.save()
-        self.client.force_authenticate(superuser)
-        response = self.client.get(reverse('pybb:unblock_user', args=[user.username]), follow=True)
-        self.assertEqual(response.status_code, 405)
-        response = self.client.post(reverse('pybb:unblock_user', args=[user.username]), follow=True)
-        self.assertEqual(response.status_code, 200)
-        user = User.objects.get(username=user.username)
-        self.assertTrue(user.is_active)
+    user.is_active = True
+    user.save()
+    response = api_client.post(reverse('pybb:block_user', args=[user.username]),
+                               data={'block_and_delete_messages': True})
+    assert response.status_code == 200
+    user = User.objects.get(username=user.username)
+    assert not user.is_active
+    assert Topic.objects.count() == 0
+    assert Post.objects.filter(user=user).count() == 0
+
+
+def test_user_unblocking(user, api_client):
+    superuser = User.objects.create_superuser('test', 'test@localhost', 'test')
+    user.is_active = False
+    user.save()
+
+    api_client.force_authenticate(superuser)
+    response = api_client.get(reverse('pybb:unblock_user', args=[user.username]))
+    assert response.status_code == 405
+    response = api_client.post(reverse('pybb:unblock_user', args=[user.username]))
+    assert response.status_code == 200
+    user = User.objects.get(username=user.username)
+    assert user.is_active
 
 
 def test_edit_post(user, topic, api_client):
