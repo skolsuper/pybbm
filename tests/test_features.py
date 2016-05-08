@@ -98,16 +98,13 @@ class FeaturesTest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(Topic.objects.filter(name='new topic name').exists())
 
-    def test_post_deletion(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(name='xfoo', description='bar', category=category)
-        topic = Topic.objects.create(name='etopic', forum=forum, user=user)
-        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
-        post.save()
-        post.delete()
-        Topic.objects.get(id=topic.id)
-        Forum.objects.get(id=forum.id)
+
+def test_post_deletion(user, topic, forum):
+    Post.objects.create(topic=topic, user=user, body='1st post!', user_ip='0.0.0.0')
+    not_first = Post.objects.create(topic=topic, user=user, body='I\'m first!', user_ip='0.0.0.0')
+    not_first.delete()
+    Topic.objects.get(id=topic.id)
+    Forum.objects.get(id=forum.id)
 
 
 def test_topic_deletion(user, forum, topic):
