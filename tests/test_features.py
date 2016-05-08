@@ -272,18 +272,6 @@ class FeaturesTest(APITestCase):
         client = Client()
         self.assertContains(client.get(forum.get_absolute_url()), 'test <b>headline</b>')
 
-    def test_quote(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic', forum=forum, user=user)
-        post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
-        self.client.force_authenticate(user)
-        response = self.client.get(reverse('pybb:post_list', kwargs={'topic_id': topic.id}),
-                                   data={'quote_id': post.id, 'body': 'test tracking'}, follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, post.body)
-
 
 def test_edit_post(user, topic, api_client):
     if not getattr(connection.features, 'supports_microsecond_precision', False):
