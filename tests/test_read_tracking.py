@@ -52,7 +52,7 @@ def test_read_tracking(user, topic, api_client, admin_user):
         'body': 'test tracking'
     }
     response = api_client.post(add_post_url, values)
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert response.data['body'] == 'test tracking'
     # Topic status - readed
     response = api_client.get(topic.forum.get_absolute_url())

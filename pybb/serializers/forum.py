@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import datetime
 from django.db.models import Max
 from rest_framework import serializers
 
@@ -25,4 +26,5 @@ class ForumSerializer(serializers.ModelSerializer):
         if last_updated is None:
             return False
 
+        last_updated -= datetime.timedelta(seconds=0.1)  # Fuzzing factor to account for timing differences between auto_now and auto_now_add fields.
         return not ForumReadTracker.objects.filter(user=user, forum=forum, time_stamp__gte=last_updated).exists()
