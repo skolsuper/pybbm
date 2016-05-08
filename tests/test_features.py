@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.urlresolvers import reverse
 from django.db import connection
-from django.test import skipUnlessDBFeature, Client, override_settings
+from django.test import override_settings
 from pydash import py_
 from rest_framework.test import APITestCase
 

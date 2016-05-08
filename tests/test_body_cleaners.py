@@ -13,6 +13,6 @@ cleaners_map = [
 ]
 
 
-@pytest.mark.parametrize(*cleaners_map)
+@pytest.mark.parametrize(['cleaner', 'source', 'expected'], cleaners_map)
 def test_body_cleaners(cleaner, source, expected):
     assert util.get_body_cleaner(cleaner)(source) == expected
