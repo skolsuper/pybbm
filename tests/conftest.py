@@ -1,4 +1,12 @@
 import pytest
+from django.db import connection
+
+
+@pytest.fixture()
+def precision_time():
+    """Check database time precision is high enough for test"""
+    if not getattr(connection.features, 'supports_microsecond_precision', False):
+        pytest.skip('Database time precision not high enough')
 
 
 @pytest.fixture()

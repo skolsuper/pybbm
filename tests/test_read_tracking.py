@@ -1,15 +1,11 @@
-import pytest
 from django.core.urlresolvers import reverse
-from django.db import connection
 from rest_framework.test import APIClient
 
 from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker, Forum
 from pybb.templatetags.pybb_tags import pybb_topic_unread
 
 
-def test_read_tracking(user, topic, api_client, admin_user):
-    if not getattr(connection.features, 'supports_microsecond_precision', False):
-        pytest.skip('Database time precision not high enough')
+def test_read_tracking(user, topic, api_client, admin_user, precision_time):
     Topic.objects.create(forum=topic.forum, name='other topic', user=admin_user)
     for t in Topic.objects.all():
         Post.objects.create(topic=t, user=admin_user, user_ip='0.0.0.0', body='Topics need a post')
@@ -46,10 +42,7 @@ def test_read_tracking(user, topic, api_client, admin_user):
     assert not response.data['unread']
 
 
-def test_adding_post_marks_as_read(user, topic, api_client):
-    if not getattr(connection.features, 'supports_microsecond_precision', False):
-        pytest.skip('Database time precision not high enough')
-
+def test_adding_post_marks_as_read(user, topic, api_client, precision_time):
     add_post_url = reverse('pybb:post_list')
     values = {
         'topic': topic.id,
@@ -67,10 +60,7 @@ def test_adding_post_marks_as_read(user, topic, api_client):
     assert not response.data['unread']
 
 
-def test_mark_all_as_read(user, topic, api_client):
-    if not getattr(connection.features, 'supports_microsecond_precision', False):
-        pytest.skip('Database time precision not high enough')
-
+def test_mark_all_as_read(user, topic, api_client, precision_time):
     post = Post(topic=topic, user=user, body='one')
     post.save()
     api_client.get(reverse('pybb:mark_all_as_read'))
@@ -84,10 +74,7 @@ def test_mark_all_as_read(user, topic, api_client):
     assert not response.data['results'][0]['unread']
 
 
-def test_read_tracking_multi_user(user, topic, django_user_model):
-    if not getattr(connection.features, 'supports_microsecond_precision', False):
-        pytest.skip('Database doesn\'t support microsecond precision')
-
+def test_read_tracking_multi_user(user, topic, django_user_model, precision_time):
     forum = topic.forum
     topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
     Post.objects.create(topic=topic_2, user=user, body='one', user_ip='0.0.0.0')
