@@ -335,38 +335,37 @@ class FeaturesTest(APITestCase):
         self.assertEqual(Topic.objects.filter(id=topic.id).count(), 0)
         self.assertEqual(Forum.objects.filter(id=forum.id).count(), 1)
 
-    def test_open_close(self):
-        superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
-        self.client.force_authenticate(superuser)
-        response = self.client.get(reverse('pybb:close_topic', args=[topic.id]), follow=True)
-        use_post_request_msg = 'Should use a post request to make changes on the server'
-        self.assertEqual(response.status_code, 405, use_post_request_msg)
 
-        response = self.client.post(reverse('pybb:close_topic', args=[topic.id]), follow=True)
-        self.assertEqual(response.status_code, 200)
+def test_open_close(forum, api_client):
+    superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
+    topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
+    api_client.force_authenticate(superuser)
+    response = api_client.get(reverse('pybb:close_topic', args=[topic.id]))
+    use_post_request_msg = 'Should use a post request to make changes on the server'
+    assert response.status_code == 405, use_post_request_msg
 
-        add_post_url = reverse('pybb:post_list')
-        values = {'body': 'test closed', 'topic': topic.id}
-        response = self.client.post(add_post_url, values, follow=True)
-        self.assertEqual(response.status_code, 201, 'Superusers can post in closed topics')
+    response = api_client.post(reverse('pybb:close_topic', args=[topic.id]))
+    assert response.status_code == 200
 
-        peon = User.objects.create_user('regular_user')
-        self.client.force_authenticate(peon)
-        response = self.client.post(add_post_url, values, follow=True)
-        self.assertEqual(response.status_code, 403)
+    add_post_url = reverse('pybb:post_list')
+    values = {'body': 'test closed', 'topic': topic.id}
+    response = api_client.post(add_post_url, values)
+    assert response.status_code == 201, 'Superusers can post in closed topics'
 
-        self.client.force_authenticate(superuser)
-        response = self.client.get(reverse('pybb:open_topic', args=[topic.id]), follow=True)
-        self.assertEqual(response.status_code, 405, use_post_request_msg)
-        response = self.client.post(reverse('pybb:open_topic', args=[topic.id]), follow=True)
-        self.assertEqual(response.status_code, 200)
+    peon = User.objects.create_user('regular_user')
+    api_client.force_authenticate(peon)
+    response = api_client.post(add_post_url, values)
+    assert response.status_code == 403
 
-        self.client.force_authenticate(peon)
-        response = self.client.post(add_post_url, values, follow=True)
-        self.assertEqual(response.status_code, 201)
+    api_client.force_authenticate(superuser)
+    response = api_client.get(reverse('pybb:open_topic', args=[topic.id]))
+    assert response.status_code, 405 == use_post_request_msg
+    response = api_client.post(reverse('pybb:open_topic', args=[topic.id]))
+    assert response.status_code == 200
+
+    api_client.force_authenticate(peon)
+    response = api_client.post(add_post_url, values)
+    assert response.status_code == 201
 
 
 def test_topic_updated(user, forum, api_client):

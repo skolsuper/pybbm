@@ -9,7 +9,7 @@ from django.utils.translation import ugettext as _
 from rest_framework import status
 from rest_framework.decorators import permission_classes, api_view
 from rest_framework.exceptions import PermissionDenied, NotFound
-from rest_framework.generics import CreateAPIView
+from rest_framework.generics import CreateAPIView, GenericAPIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -23,7 +23,8 @@ User = get_user_model()
 username_field = User.USERNAME_FIELD
 
 
-class TopicActionBaseView(PermissionsMixin, APIView):
+class TopicActionBaseView(PermissionsMixin, GenericAPIView):
+    serializer_class = TopicSerializer
 
     def get_object(self):
         return get_object_or_404(Topic, pk=self.kwargs['pk'])
@@ -31,7 +32,7 @@ class TopicActionBaseView(PermissionsMixin, APIView):
     def post(self, *args, **kwargs):
         topic = self.get_object()
         self.action(topic)
-        serializer = TopicSerializer(topic)
+        serializer = self.get_serializer(topic)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def action(self, topic):
