@@ -75,16 +75,16 @@ class FeaturesTest(APITestCase):
         response = self.client.post(reverse('pybb:edit_profile'), data=values, follow=True)
         self.assertEqual(len(response.context['form'].errors), 0)
 
-    def test_pagination_and_topic_addition(self):
-        for i in range(0, pybb_settings.PYBB_FORUM_PAGE_SIZE + 3):
-            topic = Topic(name='topic_%s_' % i, forum=self.forum, user=self.user)
-            topic.save()
-        url = self.forum.get_absolute_url()
-        response = self.client.get(url)
-        self.assertEqual(len(response.context['topic_list']), pybb_settings.PYBB_FORUM_PAGE_SIZE)
-        self.assertTrue(response.context['is_paginated'])
-        self.assertEqual(response.context['paginator'].num_pages,
-                         int((pybb_settings.PYBB_FORUM_PAGE_SIZE + 3) / pybb_settings.PYBB_FORUM_PAGE_SIZE) + 1)
+
+def test_pagination(forum, user, api_client):
+    page_size = pybb_settings.PYBB_DEFAULT_TOPICS_PER_PAGE
+    for i in range(page_size + 3):
+        topic = Topic(name='topic_%s_' % i, forum=forum, user=user)
+        topic.save()
+    response = api_client.get(reverse('pybb:topic_list'), data={'forum': forum.id})
+    assert response.data['count'] == page_size + 3
+    assert len(response.data['results']) == page_size
+    assert response.data['next']
 
 
 def test_topic_addition(user, forum, api_client):
