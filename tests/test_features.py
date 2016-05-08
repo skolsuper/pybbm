@@ -4,12 +4,10 @@ from __future__ import unicode_literals
 
 import datetime
 
-import pytest
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.urlresolvers import reverse
-from django.db import connection
 from django.test import override_settings
 from pydash import py_
 from rest_framework.test import APITestCase
@@ -119,16 +117,12 @@ def test_topic_deletion(user, forum, topic):
     Forum.objects.get(id=forum.id)
 
 
-def test_forum_updated(user, forum, topic):
-    if not getattr(connection.features, 'supports_microsecond_precision', False):
-        pytest.skip('Database time precision not high enough')
+def test_forum_updated(user, forum, topic, precision_time):
     post = Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
     assert abs(forum.updated - post.created) < datetime.timedelta(milliseconds=50)
 
 
-def test_latest_topics(user, forum, api_client):
-    if not getattr(connection.features, 'supports_microsecond_precision', False):
-        pytest.skip('Database time precision not high enough')
+def test_latest_topics(user, forum, api_client, precision_time):
     category_2 = Category.objects.create(name='cat2')
     forum_2 = Forum.objects.create(name='forum_2', category=category_2)
     topic_1 = Topic.objects.create(name='topic_1', forum=forum, user=user)
@@ -252,9 +246,7 @@ def test_user_unblocking(user, api_client):
     assert user.is_active
 
 
-def test_edit_post(user, topic, api_client):
-    if not getattr(connection.features, 'supports_microsecond_precision', False):
-        pytest.skip('Database time precision not high enough')
+def test_edit_post(user, topic, api_client, precision_time):
     post = Post.objects.create(topic=topic, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
     original_updated = post.updated
 
@@ -337,9 +329,7 @@ def test_open_close(forum, api_client):
     assert response.status_code == 201
 
 
-def test_topic_updated(user, forum, api_client):
-    if not getattr(connection.features, 'supports_microsecond_precision', False):
-        pytest.skip('Database time precision not high enough')
+def test_topic_updated(user, forum, api_client, precision_time):
     topic_1 = Topic.objects.create(name='topic one', forum=forum, user=user)
     topic_2 = Topic.objects.create(name='topic two', forum=forum, user=user)
     Post.objects.create(topic=topic_1, user=user, body='bbcode [b]test[/b]', user_ip='0.0.0.0')
