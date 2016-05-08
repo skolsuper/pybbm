@@ -132,73 +132,72 @@ class FeaturesTest(APITestCase):
         post = Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
         self.assertAlmostEqual(forum.updated, post.created, delta=datetime.timedelta(milliseconds=50))
 
-    @skipUnlessDBFeature('supports_microsecond_precision')
-    def test_latest_topics(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum = Forum.objects.create(category=category, name='foo')
-        category_2 = Category.objects.create(name='cat2')
-        forum_2 = Forum.objects.create(name='forum_2', category=category_2)
-        topic_1 = Topic.objects.create(name='topic_1', forum=forum, user=user)
-        topic_3 = Topic.objects.create(name='topic_3', forum=forum_2, user=user)
 
-        topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
+def test_latest_topics(user, forum, api_client):
+    if not getattr(connection.features, 'supports_microsecond_precision', False):
+        pytest.skip('Database time precision not high enough')
+    category_2 = Category.objects.create(name='cat2')
+    forum_2 = Forum.objects.create(name='forum_2', category=category_2)
+    topic_1 = Topic.objects.create(name='topic_1', forum=forum, user=user)
+    topic_3 = Topic.objects.create(name='topic_3', forum=forum_2, user=user)
 
-        Post.objects.create(topic=topic_1, user=user, body='Something completely different', user_ip='0.0.0.0')
-        topic_list_url = reverse('pybb:topic_list')
+    topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
 
-        self.client.force_authenticate(user)
-        response = self.client.get(topic_list_url)
-        self.assertEqual(response.status_code, 200)
-        id_list = py_(response.data['results']).pluck('id').value()
-        self.assertListEqual(id_list, [topic_1.id, topic_2.id, topic_3.id])
+    Post.objects.create(topic=topic_1, user=user, body='Something completely different', user_ip='0.0.0.0')
+    topic_list_url = reverse('pybb:topic_list')
 
-        topic_2.forum.hidden = True
-        topic_2.forum.save()
-        response = self.client.get(topic_list_url)
-        id_list = py_(response.data['results']).pluck('id').value()
-        self.assertListEqual(id_list, [topic_3.id])
+    api_client.force_authenticate(user)
+    response = api_client.get(topic_list_url)
+    assert response.status_code == 200
+    id_list = py_(response.data['results']).pluck('id').value()
+    assert id_list == [topic_1.id, topic_2.id, topic_3.id]
 
-        topic_2.forum.hidden = False
-        topic_2.forum.save()
-        category_2.hidden = True
-        category_2.save()
-        response = self.client.get(topic_list_url)
-        id_list = py_(response.data['results']).pluck('id').value()
-        self.assertListEqual(id_list, [topic_1.id, topic_2.id])
+    topic_2.forum.hidden = True
+    topic_2.forum.save()
+    response = api_client.get(topic_list_url)
+    id_list = py_(response.data['results']).pluck('id').value()
+    assert id_list == [topic_3.id]
 
-        topic_2.forum.hidden = False
-        topic_2.forum.save()
-        category_2.hidden = False
-        category_2.save()
-        topic_1.on_moderation = True
-        topic_1.save()
-        response = self.client.get(topic_list_url)
-        id_list = py_(response.data['results']).pluck('id').value()
-        self.assertListEqual(id_list, [topic_1.id, topic_2.id, topic_3.id])
+    topic_2.forum.hidden = False
+    topic_2.forum.save()
+    category_2.hidden = True
+    category_2.save()
+    response = api_client.get(topic_list_url)
+    id_list = py_(response.data['results']).pluck('id').value()
+    assert id_list == [topic_1.id, topic_2.id]
 
-        topic_1.user = User.objects.create_user('another', 'another@localhost', 'another')
-        topic_1.save()
-        response = self.client.get(topic_list_url)
-        id_list = py_(response.data['results']).pluck('id').value()
-        self.assertListEqual(id_list, [topic_2.id, topic_3.id])
+    topic_2.forum.hidden = False
+    topic_2.forum.save()
+    category_2.hidden = False
+    category_2.save()
+    topic_1.on_moderation = True
+    topic_1.save()
+    response = api_client.get(topic_list_url)
+    id_list = py_(response.data['results']).pluck('id').value()
+    assert id_list, [topic_1.id, topic_2.id, topic_3.id]
 
-        topic_1.forum.moderators.add(user)
-        response = self.client.get(topic_list_url)
-        id_list = py_(response.data['results']).pluck('id').value()
-        self.assertListEqual(id_list, [topic_1.id, topic_2.id, topic_3.id])
+    topic_1.user = User.objects.create_user('another', 'another@localhost', 'another')
+    topic_1.save()
+    response = api_client.get(topic_list_url)
+    id_list = py_(response.data['results']).pluck('id').value()
+    assert id_list == [topic_2.id, topic_3.id]
 
-        topic_1.forum.moderators.remove(user)
-        user.is_superuser = True
-        user.save()
-        response = self.client.get(topic_list_url)
-        id_list = py_(response.data['results']).pluck('id').value()
-        self.assertListEqual(id_list, [topic_1.id, topic_2.id, topic_3.id])
+    topic_1.forum.moderators.add(user)
+    response = api_client.get(topic_list_url)
+    id_list = py_(response.data['results']).pluck('id').value()
+    assert id_list == [topic_1.id, topic_2.id, topic_3.id]
 
-        self.client.logout()
-        response = self.client.get(topic_list_url)
-        id_list = py_(response.data['results']).pluck('id').value()
-        self.assertListEqual(id_list, [topic_2.id, topic_3.id])
+    topic_1.forum.moderators.remove(user)
+    user.is_superuser = True
+    user.save()
+    response = api_client.get(topic_list_url)
+    id_list = py_(response.data['results']).pluck('id').value()
+    assert id_list == [topic_1.id, topic_2.id, topic_3.id]
+
+    api_client.logout()
+    response = api_client.get(topic_list_url)
+    id_list = py_(response.data['results']).pluck('id').value()
+    assert id_list == [topic_2.id, topic_3.id]
 
 
 def test_inactive(user, topic, api_client):
