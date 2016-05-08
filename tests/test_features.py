@@ -86,17 +86,19 @@ class FeaturesTest(APITestCase):
         self.assertEqual(response.context['paginator'].num_pages,
                          int((pybb_settings.PYBB_FORUM_PAGE_SIZE + 3) / pybb_settings.PYBB_FORUM_PAGE_SIZE) + 1)
 
-    def test_topic_addition(self):
-        self.login_client()
-        add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
-        response = self.client.get(add_topic_url)
-        values = self.get_form_values(response)
-        values['body'] = 'new topic test'
-        values['name'] = 'new topic name'
-        values['poll_type'] = 0
-        response = self.client.post(add_topic_url, data=values, follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(Topic.objects.filter(name='new topic name').exists())
+
+def test_topic_addition(user, forum, api_client):
+    api_client.force_authenticate(user)
+    values = {
+        'forum': forum.id,
+        'body': 'test body',
+        'name': 'new topic name',
+        'poll_type': Topic.POLL_TYPE_NONE,
+    }
+    add_topic_url = reverse('pybb:topic_list')
+    response = api_client.post(add_topic_url, data=values)
+    assert response.status_code == 201
+    assert Topic.objects.filter(name='new topic name').exists()
 
 
 def test_post_deletion(user, topic, forum):
