@@ -382,34 +382,32 @@ class FeaturesTest(APITestCase):
         response = client.get(forum.get_absolute_url())
         self.assertEqual(response.context['topic_list'][0], topic)
 
-    def test_topic_deleted(self):
-        user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-        category = Category.objects.create(name='foo')
-        forum_1 = Forum.objects.create(name='new forum', category=category)
-        topic_1 = Topic.objects.create(name='new topic', forum=forum_1, user=user)
-        post_1 = Post.objects.create(topic=topic_1, user=user, body='test', user_ip='0.0.0.0')
-        post_1 = Post.objects.get(id=post_1.id)
 
-        self.assertAlmostEqual(topic_1.updated, post_1.created, delta=datetime.timedelta(milliseconds=50))
-        self.assertAlmostEqual(forum_1.updated, post_1.created, delta=datetime.timedelta(milliseconds=50))
+def test_topic_deleted(user, forum):
+    topic_1 = Topic.objects.create(name='new topic', forum=forum, user=user)
+    post_1 = Post.objects.create(topic=topic_1, user=user, body='test', user_ip='0.0.0.0')
+    post_1 = Post.objects.get(id=post_1.id)
 
-        topic_2 = Topic.objects.create(name='another topic', forum=forum_1, user=user)
-        post_2 = Post.objects.create(topic=topic_2, user=user, body='another test', user_ip='0.0.0.0')
-        post_2 = Post.objects.get(id=post_2.id)
+    assert abs(topic_1.updated - post_1.created) < datetime.timedelta(milliseconds=50)
+    assert abs(forum.updated - post_1.created) < datetime.timedelta(milliseconds=50)
 
-        self.assertAlmostEqual(topic_2.updated, post_2.created, delta=datetime.timedelta(milliseconds=50))
-        self.assertAlmostEqual(forum_1.updated, post_2.created, delta=datetime.timedelta(milliseconds=50))
+    topic_2 = Topic.objects.create(name='another topic', forum=forum, user=user)
+    post_2 = Post.objects.create(topic=topic_2, user=user, body='another test', user_ip='0.0.0.0')
+    post_2 = Post.objects.get(id=post_2.id)
 
-        topic_2.delete()
-        forum_1 = Forum.objects.get(id=forum_1.id)
-        self.assertAlmostEqual(forum_1.updated, post_1.created, delta=datetime.timedelta(milliseconds=50))
-        self.assertEqual(forum_1.topics.count(), 1)
-        self.assertEqual(forum_1.posts.count(), 1)
+    assert abs(topic_2.updated - post_2.created) < datetime.timedelta(milliseconds=50)
+    assert abs(forum.updated - post_2.created) < datetime.timedelta(milliseconds=50)
 
-        post_1.delete()
-        forum_1 = Forum.objects.get(id=forum_1.id)
-        self.assertEqual(forum_1.topics.count(), 0)
-        self.assertEqual(forum_1.posts.count(), 0)
+    topic_2.delete()
+    forum = Forum.objects.get(id=forum.id)
+    assert abs(forum.updated - post_1.created) < datetime.timedelta(milliseconds=50)
+    assert forum.topics.count() == 1
+    assert forum.posts.count() == 1
+
+    post_1.delete()
+    forum = Forum.objects.get(id=forum.id)
+    assert forum.topics.count() == 0
+    assert forum.posts.count() == 0
 
 
 def test_user_views(forum, user, api_client):
