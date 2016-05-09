@@ -1,21 +1,18 @@
-from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
 from django.utils.timezone import now
 from rest_framework.test import APIClient
 
-from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker, Forum
+from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker
 from pybb.read_tracking import get_read_topic_trackers, get_unread_topics_in_forum
 from pybb.templatetags.pybb_tags import pybb_topic_unread
 
-User = get_user_model()
 
-
-def test_get_read_topic_trackers(user, forum, precision_time):
+def test_get_read_topic_trackers(user, forum, django_user_model, precision_time):
     for i in range(3):
         t = Topic.objects.create(forum=forum, name='test topic {}'.format(i), user=user)
         Post.objects.create(topic=t, user=user, user_ip='0.0.0.0', body='Topics need a post')
 
-    other_user = User.objects.create_user('two', 'two@localhost', 'two')
+    other_user = django_user_model.objects.create_user('two', 'two@localhost', 'two')
     assert not get_read_topic_trackers(other_user, forum).exists()
 
     for t in forum.topics.all():
@@ -24,12 +21,12 @@ def test_get_read_topic_trackers(user, forum, precision_time):
     assert get_read_topic_trackers(other_user, forum).count() == forum.topics.count()
 
 
-def test_get_unread_topics_in_forum(user, forum, precision_time):
+def test_get_unread_topics_in_forum(user, forum, django_user_model, precision_time):
     for i in range(3):
         t = Topic.objects.create(forum=forum, name='test topic {}'.format(i), user=user)
         Post.objects.create(topic=t, user=user, user_ip='0.0.0.0', body='Topics need a post')
 
-    other_user = User.objects.create_user('two', 'two@localhost', 'two')
+    other_user = django_user_model.objects.create_user('two', 'two@localhost', 'two')
     assert get_unread_topics_in_forum(other_user, forum).count() == 3
 
     topic = forum.topics.last()
@@ -41,12 +38,12 @@ def test_get_unread_topics_in_forum(user, forum, precision_time):
     assert get_unread_topics_in_forum(other_user, forum).count() == 3
 
 
-def test_get_unread_topics_in_forum_with_forum_read_tracker(user, forum, precision_time):
+def test_get_unread_topics_in_forum_with_forum_read_tracker(user, forum, django_user_model, precision_time):
     for i in range(3):
         t = Topic.objects.create(forum=forum, name='test topic {}'.format(i), user=user)
         Post.objects.create(topic=t, user=user, user_ip='0.0.0.0', body='Topics need a post')
 
-    other_user = User.objects.create_user('two', 'two@localhost', 'two')
+    other_user = django_user_model.objects.create_user('two', 'two@localhost', 'two')
     assert get_unread_topics_in_forum(other_user, forum).count() == 3
 
     ForumReadTracker.objects.create(user=other_user, forum=forum, time_stamp=now())
