@@ -215,7 +215,7 @@ def test_read_tracking_multi_user(user, topic, django_user_model, precision_time
     assert TopicReadTracker.objects.filter(user=user_bob).count() == 0
 
 
-def test_read_tracking_multi_forum(user, forum, api_client):
+def test_read_tracking_multi_forum(user, forum, api_client, precision_time):
     topic_1 = Topic.objects.create(name='xtopic', forum=forum, user=user)
     topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
 
@@ -246,24 +246,21 @@ def test_read_tracking_multi_forum(user, forum, api_client):
     assert ForumReadTracker.objects.filter(user=user, forum=forum).count() == 1
 
 
-# def test_read_tracker_after_posting(self):
-#     user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-#     category = Category.objects.create(name='foo')
-#     forum = Forum.objects.create(name='xfoo', description='bar', category=category)
-#     topic = Topic.objects.create(name='xtopic', forum=forum, user=user)
-#     client = Client()
-#     client.login(username='zeus', password='zeus')
-#     add_post_url = reverse('pybb:post_list', kwargs={'topic_id': topic.id})
-#     response = client.get(add_post_url)
-#     values = self.get_form_values(response)
-#     values['body'] = 'test tracking'
-#     response = client.post(add_post_url, values)
-#
-#     # after posting in topic it should be readed
-#     # because there is only one topic, so whole forum should be marked as readed
-#     self.assertEqual(TopicReadTracker.objects.filter(user=user, topic=topic).count(), 0)
-#     self.assertEqual(ForumReadTracker.objects.filter(user=user, forum=forum).count(), 1)
-#
+def test_read_tracker_after_posting(user, topic, api_client, precision_time):
+    api_client.force_authenticate(user)
+    add_post_url = reverse('pybb:post_list')
+    values = {
+        'body': 'test tracking',
+        'topic': topic.id
+    }
+    response = api_client.post(add_post_url, values)
+
+    # after posting in topic it should be readed
+    # because there is only one topic, so whole forum should be marked as readed
+    assert TopicReadTracker.objects.filter(user=user, topic=topic).count() == 0
+    assert ForumReadTracker.objects.filter(user=user, forum=topic.forum).count() == 1
+
+
 # def test_pybb_is_topic_unread_filter(self):
 #     user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
 #     category = Category.objects.create(name='foo')
