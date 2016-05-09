@@ -178,9 +178,10 @@ def test_read_tracking_multi_user(user, topic, django_user_model, precision_time
     assert topic_3.name == 'topic_3'
 
     # user_alice posts to topic, a topic they've already read, no new trackers should be created
-    add_post_url = reverse('pybb:post_list', kwargs={'topic_id': topic.id})
+    add_post_url = reverse('pybb:post_list')
     values = {
-        'body': 'test tracking'
+        'body': 'test tracking',
+        'topic': topic.id,
     }
     client_alice.post(add_post_url, values)
     assert TopicReadTracker.objects.all().count() == 2
@@ -196,7 +197,7 @@ def test_read_tracking_multi_user(user, topic, django_user_model, precision_time
     #   'topic_3' appears unread for user_bob
     #
     previous_time = ForumReadTracker.objects.all()[0].time_stamp
-    client_bob.get(topic.get_absolute_url())
+    client_bob.get(reverse('pybb:post_list'), data={'topic': topic.id})
     assert ForumReadTracker.objects.all().count() == 1
     assert ForumReadTracker.objects.all()[0].time_stamp == previous_time
     assert TopicReadTracker.objects.filter(user=user_bob).count() == 1
@@ -207,7 +208,7 @@ def test_read_tracking_multi_user(user, topic, django_user_model, precision_time
     # user_bob's existing forum read tracker updates and his topic read tracker disappears
     #
     previous_time = ForumReadTracker.objects.all()[0].time_stamp
-    client_bob.get(topic_3.get_absolute_url())
+    client_bob.get(reverse('pybb:post_list'), data={'topic': topic_3.id})
     assert ForumReadTracker.objects.all().count() == 1
     assert ForumReadTracker.objects.all()[0].time_stamp > previous_time
     assert TopicReadTracker.objects.all().count() == 2

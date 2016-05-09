@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 from django.core.cache import cache
 from django.db.models import F, Count, Max
 from django.shortcuts import redirect, get_object_or_404
+from django.utils.timezone import now
 from django.utils.translation import ugettext as _
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied, ParseError
@@ -15,6 +16,7 @@ from pybb import util
 from pybb.models import Category, Forum, Topic
 from pybb.pagination import PybbTopicPagination
 from pybb.permissions import PermissionsMixin
+from pybb.read_tracking import mark_read
 from pybb.serializers import ForumSerializer, TopicSerializer, CategorySerializer
 from pybb.settings import settings
 
@@ -120,6 +122,7 @@ class ListCreateTopicsView(PermissionsMixin, ListCreateAPIView):
         serializer = self.get_serializer(data=topic_data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        mark_read(request.user, serializer.instance, now())
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
