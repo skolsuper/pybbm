@@ -2,7 +2,7 @@ from django.core.urlresolvers import reverse
 from django.utils.timezone import now
 from rest_framework.test import APIClient
 
-from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker
+from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker, Forum
 from pybb.read_tracking import get_read_topic_trackers, get_unread_topics_in_forum
 from pybb.templatetags.pybb_tags import pybb_topic_unread
 
@@ -214,41 +214,38 @@ def test_read_tracking_multi_user(user, topic, django_user_model, precision_time
     assert TopicReadTracker.objects.all().count() == 2
     assert TopicReadTracker.objects.filter(user=user_bob).count() == 0
 
-# def test_read_tracking_multi_forum(self):
-#     user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
-#     category = Category.objects.create(name='foo')
-#     forum = Forum.objects.create(name='xfoo', description='bar', category=category)
-#     topic_1 = Topic.objects.create(name='xtopic', forum=forum, user=user)
-#     topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
-#
-#     Post.objects.create(topic=topic_2, user=user, body='one', user_ip='0.0.0.0')
-#
-#     forum_2 = Forum(name='forum_2', description='bar', category=self.category)
-#     forum_2.save()
-#
-#     Topic(name='garbage', forum=forum_2, user=user).save()
-#
-#     client = Client()
-#     client.login(username='zeus', password='zeus')
-#
-#     # everything starts unread
-#     self.assertEqual(ForumReadTracker.objects.all().count(), 0)
-#     self.assertEqual(TopicReadTracker.objects.all().count(), 0)
-#
-#     # user reads topic_1, they should get one topic read tracker, there should be no forum read trackers
-#     client.get(topic_1.get_absolute_url())
-#     self.assertEqual(TopicReadTracker.objects.all().count(), 1)
-#     self.assertEqual(TopicReadTracker.objects.filter(user=self.user).count(), 1)
-#     self.assertEqual(TopicReadTracker.objects.filter(user=self.user, topic=topic_1).count(), 1)
-#
-#     # user reads topic_2, they should get a forum read tracker,
-#     #  there should be no topic read trackers for the user
-#     client.get(topic_2.get_absolute_url())
-#     self.assertEqual(TopicReadTracker.objects.all().count(), 0)
-#     self.assertEqual(ForumReadTracker.objects.all().count(), 1)
-#     self.assertEqual(ForumReadTracker.objects.filter(user=user).count(), 1)
-#     self.assertEqual(ForumReadTracker.objects.filter(user=user, forum=forum).count(), 1)
-#
+
+def test_read_tracking_multi_forum(user, forum, api_client):
+    topic_1 = Topic.objects.create(name='xtopic', forum=forum, user=user)
+    topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
+
+    Post.objects.create(topic=topic_1, user=user, body='one', user_ip='0.0.0.0')
+    Post.objects.create(topic=topic_2, user=user, body='two', user_ip='0.0.0.0')
+
+    forum_2 = Forum.objects.create(name='forum_2', description='bar', category=forum.category)
+
+    Topic(name='garbage', forum=forum_2, user=user).save()
+
+    # everything starts unread
+    assert ForumReadTracker.objects.all().count() == 0
+    assert TopicReadTracker.objects.all().count() == 0
+
+    # user reads topic_1, they should get one topic read tracker, there should be no forum read trackers
+    api_client.force_authenticate(user)
+    api_client.get(reverse('pybb:post_list'), data={'topic': topic_1.id})
+    assert TopicReadTracker.objects.all().count() == 1
+    assert TopicReadTracker.objects.filter(user=user).count() == 1
+    assert TopicReadTracker.objects.filter(user=user, topic=topic_1).count() == 1
+
+    # user reads topic_2, they should get a forum read tracker,
+    #  there should be no topic read trackers for the user
+    api_client.get(reverse('pybb:post_list'), data={'topic': topic_2.id})
+    assert TopicReadTracker.objects.all().count() == 0
+    assert ForumReadTracker.objects.all().count() == 1
+    assert ForumReadTracker.objects.filter(user=user).count() == 1
+    assert ForumReadTracker.objects.filter(user=user, forum=forum).count() == 1
+
+
 # def test_read_tracker_after_posting(self):
 #     user = User.objects.create_user('zeus', 'zeus@localhost', 'zeus')
 #     category = Category.objects.create(name='foo')
