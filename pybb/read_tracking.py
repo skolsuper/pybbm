@@ -15,10 +15,9 @@ def mark_read(user, topic, last_read_time):
             return
 
         # Check, if there are any unread topics in forum
-        readed_trackers = TopicReadTracker.objects\
-            .annotate(last_update=Max('topic__posts__created'))\
-            .filter(user=user, topic__forum=topic.forum, last_update__gte=F('time_stamp'))
-        unread = topic.forum.topics.exclude(topicreadtracker__in=readed_trackers).exclude(id=topic.id)
+        readed_trackers = get_read_topic_trackers(user=user, forum=topic.forum)
+        unread = topic.forum.topics.exclude(topicreadtracker__in=readed_trackers)
+        unread = unread.exclude(id=topic.id)
         if forum_mark is not None:
             unread = unread.annotate(
                 last_update=Max('posts__created')).filter(last_update__gt=forum_mark.time_stamp)
@@ -32,3 +31,9 @@ def mark_read(user, topic, last_read_time):
         else:
             topic_mark.time_stamp = last_read_time
             topic_mark.save()
+
+
+def get_read_topic_trackers(user, forum):
+    all_trackers = TopicReadTracker.objects.filter(user=user, topic__forum=forum)
+    all_trackers = all_trackers.annotate(last_update=Max('topic__posts__created'))
+    return all_trackers.filter(last_update__gte=F('time_stamp'))
