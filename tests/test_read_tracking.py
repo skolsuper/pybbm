@@ -112,17 +112,15 @@ def test_adding_post_marks_as_read(user, topic, api_client, precision_time):
 
 
 def test_mark_all_as_read(user, topic, api_client, precision_time):
-    post = Post(topic=topic, user=user, body='one')
-    post.save()
-    api_client.get(reverse('pybb:mark_all_as_read'))
-    response = api_client.get(reverse('pybb:index'))
-    assert not response.data['results'][0]['unread']
+    assert get_unread_topics_in_forum(user, topic.forum).count() == 1
 
-    # Empty forum - readed
-    f = Forum(name='empty', category=topic.forum.category)
-    f.save()
-    response = api_client.get(reverse('pybb:index'))
-    assert not response.data['results'][0]['unread']
+    api_client.force_authenticate(user)
+    response = api_client.get(reverse('pybb:mark_all_as_read'))
+    assert response.status_code == 405
+    response = api_client.post(reverse('pybb:mark_all_as_read'))
+    assert response.status_code == 200
+
+    assert get_unread_topics_in_forum(user, topic.forum).count() == 0
 
 
 def test_read_tracking_multi_user(user, topic, django_user_model, precision_time):
