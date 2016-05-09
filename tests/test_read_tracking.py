@@ -123,7 +123,8 @@ def test_mark_all_as_read(user, topic, api_client, precision_time):
 def test_read_tracking_multi_user(user, topic, django_user_model, precision_time):
     forum = topic.forum
     topic_2 = Topic.objects.create(name='topic_2', forum=forum, user=user)
-    Post.objects.create(topic=topic_2, user=user, body='one', user_ip='0.0.0.0')
+    Post.objects.create(topic=topic, user=user, body='one', user_ip='0.0.0.0')
+    Post.objects.create(topic=topic_2, user=user, body='two', user_ip='0.0.0.0')
 
     user_alice = django_user_model.objects.create_user('alice', 'alice@localhost', 'alice')
     client_alice = APIClient()
@@ -138,21 +139,21 @@ def test_read_tracking_multi_user(user, topic, django_user_model, precision_time
     assert ForumReadTracker.objects.count() == 0
 
     # user_alice reads topic_1, she should get one topic read tracker, there should be no forum read trackers
-    client_alice.get(topic.get_absolute_url())
+    client_alice.get(reverse('pybb:post_list'), data={'topic': topic.id})
     assert TopicReadTracker.objects.all().count() == 1
     assert TopicReadTracker.objects.filter(user=user_alice).count() == 1
     assert TopicReadTracker.objects.filter(user=user_alice, topic=topic).count() == 1
     assert ForumReadTracker.objects.all().count() == 0
 
     # user_bob reads topic, he should get one topic read tracker, there should be no forum read trackers
-    client_bob.get(topic.get_absolute_url())
+    client_bob.get(reverse('pybb:post_list'), data={'topic': topic.id})
     assert TopicReadTracker.objects.all().count() == 2
     assert TopicReadTracker.objects.filter(user=user_bob).count() == 1
     assert TopicReadTracker.objects.filter(user=user_bob, topic=topic).count() == 1
 
     # user_bob reads topic_2, he should get a forum read tracker,
     #  there should be no topic read trackers for user_bob
-    client_bob.get(topic_2.get_absolute_url())
+    client_bob.get(reverse('pybb:post_list'), data={'topic': topic_2.id})
     assert TopicReadTracker.objects.all().count() == 1
     assert ForumReadTracker.objects.all().count() == 1
     assert ForumReadTracker.objects.filter(user=user_bob).count() == 1
@@ -162,13 +163,14 @@ def test_read_tracking_multi_user(user, topic, django_user_model, precision_time
         assert not item
 
     # user_alice creates topic_3, they should get a new topic read tracker in the db
-    add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': forum.id})
+    add_topic_url = reverse('pybb:topic_list')
     values = {
         'body': 'topic_3',
         'name': 'topic_3',
-        'poll_type': 0
+        'forum': forum.id,
+        'poll_type': Topic.POLL_TYPE_NONE
     }
-    client_alice.post(add_topic_url, data=values, follow=True)
+    client_alice.post(add_topic_url, data=values)
     assert TopicReadTracker.objects.all().count() == 2
     assert TopicReadTracker.objects.filter(user=user_alice).count() == 2
     assert ForumReadTracker.objects.all().count() == 1
@@ -180,7 +182,7 @@ def test_read_tracking_multi_user(user, topic, django_user_model, precision_time
     values = {
         'body': 'test tracking'
     }
-    client_alice.post(add_post_url, values, follow=True)
+    client_alice.post(add_post_url, values)
     assert TopicReadTracker.objects.all().count() == 2
     assert TopicReadTracker.objects.filter(user=user_alice).count() == 2
     assert ForumReadTracker.objects.all().count() == 1
@@ -257,7 +259,7 @@ def test_read_tracking_multi_user(user, topic, django_user_model, precision_time
 #     response = client.get(add_post_url)
 #     values = self.get_form_values(response)
 #     values['body'] = 'test tracking'
-#     response = client.post(add_post_url, values, follow=True)
+#     response = client.post(add_post_url, values)
 #
 #     # after posting in topic it should be readed
 #     # because there is only one topic, so whole forum should be marked as readed
@@ -444,17 +446,17 @@ def test_read_tracking_multi_user(user, topic, django_user_model, precision_time
 #     client_alice = Client()
 #     client_alice.login(username='alice', password='alice')
 #
-#     response = client_alice.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
+#     response = client_alice.get(topic_1.get_absolute_url(), data={'first-unread': 1})
 #     self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_1.get_absolute_url(), 1, post_1_1.id))
 #
-#     response = client_alice.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
+#     response = client_alice.get(topic_1.get_absolute_url(), data={'first-unread': 1})
 #     self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_1.get_absolute_url(), 1, post_1_2.id))
 #
-#     response = client_alice.get(topic_2.get_absolute_url(), data={'first-unread': 1}, follow=True)
+#     response = client_alice.get(topic_2.get_absolute_url(), data={'first-unread': 1})
 #     self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_2.get_absolute_url(), 1, post_2_1.id))
 #
 #     post_1_3 = Post.objects.create(topic=topic_1, user=user, body='1_3', user_ip='0.0.0.0')
 #     post_1_4 = Post.objects.create(topic=topic_1, user=user, body='1_4', user_ip='0.0.0.0')
 #
-#     response = client_alice.get(topic_1.get_absolute_url(), data={'first-unread': 1}, follow=True)
+#     response = client_alice.get(topic_1.get_absolute_url(), data={'first-unread': 1})
 #     self.assertRedirects(response, '%s?page=%d#post-%d' % (topic_1.get_absolute_url(), 1, post_1_3.id))
