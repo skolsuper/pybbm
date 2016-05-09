@@ -1,8 +1,27 @@
+from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
+from django.utils.timezone import now
 from rest_framework.test import APIClient
 
 from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker, Forum
+from pybb.read_tracking import get_read_topic_trackers
 from pybb.templatetags.pybb_tags import pybb_topic_unread
+
+User = get_user_model()
+
+
+def test_get_read_topic_trackers(user, forum, precision_time):
+    for i in range(3):
+        t = Topic.objects.create(forum=forum, name='test topic {}'.format(i), user=user)
+        Post.objects.create(topic=t, user=user, user_ip='0.0.0.0', body='Topics need a post')
+
+    other_user = User.objects.create_user('two', 'two@localhost', 'two')
+    assert not get_read_topic_trackers(other_user, forum).exists()
+
+    for t in forum.topics.all():
+        TopicReadTracker.objects.create(user=other_user, topic=t, time_stamp=now())
+
+    assert get_read_topic_trackers(other_user, forum).count() == forum.topics.count()
 
 
 def test_read_tracking(user, topic, api_client, admin_user, precision_time):
