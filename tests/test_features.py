@@ -266,14 +266,14 @@ def test_stick(forum, api_client):
     superuser = User.objects.create_superuser('zeus', 'zeus@localhost', 'zeus')
     topic = Topic.objects.create(name='topic', forum=forum, user=superuser)
     api_client.force_authenticate(superuser)
-    response = api_client.get(reverse('pybb:stick_topic', kwargs={'pk': topic.id}), follow=True)
+    response = api_client.get(reverse('pybb:stick_topic', kwargs={'pk': topic.id}))
     assert response.status_code == 405
-    response = api_client.post(reverse('pybb:stick_topic', kwargs={'pk': topic.id}), follow=True)
+    response = api_client.post(reverse('pybb:stick_topic', kwargs={'pk': topic.id}))
     assert response.status_code == 200
 
-    response = api_client.get(reverse('pybb:unstick_topic', kwargs={'pk': topic.id}), follow=True)
+    response = api_client.get(reverse('pybb:unstick_topic', kwargs={'pk': topic.id}))
     assert response.status_code == 405
-    response = api_client.post(reverse('pybb:unstick_topic', kwargs={'pk': topic.id}), follow=True)
+    response = api_client.post(reverse('pybb:unstick_topic', kwargs={'pk': topic.id}))
     assert response.status_code == 200
 
 
@@ -283,14 +283,14 @@ def test_delete_view(forum, api_client):
     topic_head = Post.objects.create(topic=topic, user=superuser, body='test topic head', user_ip='0.0.0.0')
     post = Post.objects.create(topic=topic, user=superuser, body='test to delete', user_ip='0.0.0.0')
     api_client.force_authenticate(superuser)
-    response = api_client.delete(reverse('pybb:delete_post', args=[post.id]), follow=True)
+    response = api_client.delete(reverse('pybb:delete_post', args=[post.id]))
     assert response.status_code == 204
     # Check that topic and forum exists ;)
     assert Topic.objects.filter(id=topic.id).count() == 1
     assert Forum.objects.filter(id=forum.id).count() == 1
 
     # Delete topic
-    response = api_client.delete(reverse('pybb:delete_post', args=[topic_head.id]), follow=True)
+    response = api_client.delete(reverse('pybb:delete_post', args=[topic_head.id]))
     assert response.status_code == 204
     assert Post.objects.filter(id=post.id).count() == 0
     assert Topic.objects.filter(id=topic.id).count() == 0
