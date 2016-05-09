@@ -36,4 +36,4 @@ def mark_read(user, topic, last_read_time):
 def get_read_topic_trackers(user, forum):
     all_trackers = TopicReadTracker.objects.filter(user=user, topic__forum=forum)
     all_trackers = all_trackers.annotate(last_update=Max('topic__posts__created'))
-    return all_trackers.filter(last_update__gte=F('time_stamp'))
+    return all_trackers.filter(last_update__lte=F('time_stamp'))
