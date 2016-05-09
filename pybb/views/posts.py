@@ -71,6 +71,7 @@ class ListCreatePostView(PermissionsMixin, ListCreateAPIView):
         serializer = self.get_serializer(data=post_data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        mark_read(user=request.user, topic=topic, last_read_time=now())
         if not settings.PYBB_DISABLE_NOTIFICATIONS:
             notify_topic_subscribers(serializer.instance, current_site=get_current_site(request))
         headers = self.get_success_headers(serializer.data)
