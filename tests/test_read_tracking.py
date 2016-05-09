@@ -4,7 +4,7 @@ from django.utils.timezone import now
 from rest_framework.test import APIClient
 
 from pybb.models import Post, Topic, TopicReadTracker, ForumReadTracker, Forum
-from pybb.read_tracking import get_read_topic_trackers
+from pybb.read_tracking import get_read_topic_trackers, get_unread_topics_in_forum
 from pybb.templatetags.pybb_tags import pybb_topic_unread
 
 User = get_user_model()
@@ -22,6 +22,38 @@ def test_get_read_topic_trackers(user, forum, precision_time):
         TopicReadTracker.objects.create(user=other_user, topic=t, time_stamp=now())
 
     assert get_read_topic_trackers(other_user, forum).count() == forum.topics.count()
+
+
+def test_get_unread_topics_in_forum(user, forum, precision_time):
+    for i in range(3):
+        t = Topic.objects.create(forum=forum, name='test topic {}'.format(i), user=user)
+        Post.objects.create(topic=t, user=user, user_ip='0.0.0.0', body='Topics need a post')
+
+    other_user = User.objects.create_user('two', 'two@localhost', 'two')
+    assert get_unread_topics_in_forum(other_user, forum).count() == 3
+
+    topic = forum.topics.last()
+    TopicReadTracker.objects.create(user=other_user, topic=topic, time_stamp=now())
+
+    assert get_unread_topics_in_forum(other_user, forum).count() == 2
+
+    Post.objects.create(topic=topic, user=user, user_ip='0.0.0.0', body='New update in topic')
+    assert get_unread_topics_in_forum(other_user, forum).count() == 3
+
+
+def test_get_unread_topics_in_forum_with_forum_read_tracker(user, forum, precision_time):
+    for i in range(3):
+        t = Topic.objects.create(forum=forum, name='test topic {}'.format(i), user=user)
+        Post.objects.create(topic=t, user=user, user_ip='0.0.0.0', body='Topics need a post')
+
+    other_user = User.objects.create_user('two', 'two@localhost', 'two')
+    assert get_unread_topics_in_forum(other_user, forum).count() == 3
+
+    ForumReadTracker.objects.create(user=other_user, forum=forum, time_stamp=now())
+    assert get_unread_topics_in_forum(other_user, forum).count() == 0
+
+    Post.objects.create(topic=forum.topics.first(), user=user, user_ip='0.0.0.0', body='New update in topic')
+    assert get_unread_topics_in_forum(other_user, forum).count() == 1
 
 
 def test_read_tracking(user, topic, api_client, admin_user, precision_time):
